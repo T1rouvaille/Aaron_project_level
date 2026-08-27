@@ -1,0 +1,22 @@
+# ===== 编译产物 =====
+Debug/
+build/
+
+# ===== 本地缓存与工具配置 =====
+.codegraph/
+.claude/
+.mcp.json
+
+# ===== 调试日志与启动配置 =====
+JLinkLog.log
+*.jlink
+*.launch
+
+# ===== 嵌套的无关示例项目 =====
+RA2E1A73_External_IRQ/
+
+# ===== 文档与参考资料 =====
+docs/
+_aip31033e.txt
+_enh_sg626066.txt
+_hanger_board.txt
