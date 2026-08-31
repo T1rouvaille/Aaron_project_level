@@ -35,25 +35,20 @@ typedef enum
 } unit_t;
 
 /* ----------------------------------------------------------------------
- *  三档基准值 (单位 0.001 ft), 对应图标形态 A/B/C
+ *  档位差值 (0.001 ft): SW1 切换形态时相对 A 档的递减量。
+ *    A -> B 减 0.125 ft, B -> C 再减 0.250 ft (A -> C 累计 0.375 ft)。
  * ---------------------------------------------------------------------- */
-#define BASE_FT_A  (55125UL)   /* 55.125 ft */
-#define BASE_FT_B  (55000UL)   /* 55.000 ft */
-#define BASE_FT_C  (54750UL)   /* 54.750 ft */
+#define FORM_OFFSET_B  (125UL)   /* B = A - 0.125 ft */
+#define FORM_OFFSET_C  (375UL)   /* C = A - 0.375 ft */
 
 /* ----------------------------------------------------------------------
- *  获取当前图标形态对应的基准值 (0.001 ft)。IDLE 默认使用 A 档。
+ *  毫米 -> 千分之一英尺 (0.001 ft), 四舍五入:
+ *     value_mm * 1000 / 304.8 = (value_mm * 10000 + 1524) / 3048
+ *  四舍五入可保证档位减法后米态显示精确恢复原值 (消除 1mm 累积误差)。
  * ---------------------------------------------------------------------- */
-static uint32_t lcd_base_ft(form_t form)
+static uint32_t mm_to_ft_milli(uint32_t value_mm)
 {
-    switch (form)
-    {
-        case FORM_B:  return BASE_FT_B;
-        case FORM_C:  return BASE_FT_C;
-        case FORM_IDLE:
-        case FORM_A:
-        default:      return BASE_FT_A;
-    }
+    return (value_mm * 10000UL + 1524UL) / 3048UL;
 }
 
 /* ----------------------------------------------------------------------
@@ -243,19 +238,28 @@ static void lcd_show_sub_decimal(uint8_t *frame, uint32_t int_val,
 }
 
 /* ----------------------------------------------------------------------
- *  4 位整数 + 1 位小数 (如 1680.2 cm)。
+ *  最多 4 位整数 + 1 位小数 (如 1680.2 cm / 134.5 cm), 整数去掉前导 0。
  *    正向: 整数在中间组 P4 P5 P6 P7, 小数点 T28, 小数在 P9
  *    反向: 整数在中间组 P7 P6 P5 P4 (倒置), 小数点 T19, 小数在 P2 (倒置)
  * ---------------------------------------------------------------------- */
 static void lcd_show_4int_1frac(uint8_t *frame, uint32_t int_val,
                                 uint32_t frac_val, bool forward)
 {
-    uint8_t k;
+    uint8_t  k;
+    uint8_t  digits = 0U;
+    uint32_t tmp    = int_val;
+
+    /* 计算整数有效位数 (最少 1 位, 最多 4 位) */
+    do
+    {
+        digits++;
+        tmp /= 10U;
+    } while ((tmp > 0U) && (digits < 4U));
 
     if (forward)
     {
-        /* P7=个位 ... P4=千位 */
-        for (k = 0U; k < 4U; k++)
+        /* P7=个位 起左移, 仅显示有效位 (去掉前导 0) */
+        for (k = 0U; k < digits; k++)
         {
             lcd_show_digit((uint8_t)(7U - k), (uint8_t)(int_val % 10U), frame);
             int_val /= 10U;
@@ -265,8 +269,8 @@ static void lcd_show_4int_1frac(uint8_t *frame, uint32_t int_val,
     }
     else
     {
-        /* 镜像: P4=个位 ... P7=千位 */
-        for (k = 0U; k < 4U; k++)
+        /* 镜像: P4=个位 起右移 */
+        for (k = 0U; k < digits; k++)
         {
             lcd_show_digit_rot((uint8_t)(4U + k), (uint8_t)(int_val % 10U), frame);
             int_val /= 10U;
@@ -420,6 +424,7 @@ void ui_state_init(ui_state_t *s)
     s->digital   = DIGIT_FT_DEC;
     s->t7        = T7_OFF;
     s->direction = DIR_FORWARD;
+    s->value_ft  = 0U;
     s->sw3_first = true;
     s->sw4_first = true;
 
@@ -497,6 +502,23 @@ void ui_state_set_direction(ui_state_t *s, direction_t dir)
 }
 
 /* ----------------------------------------------------------------------
+ *  状态机: 设置测量值 (单位毫米), 内部换算为 A 档基准 (0.001 ft)。
+ *  开机 IDLE 态收到首个数值时自动进入 A 形态并默认显示米。
+ * ---------------------------------------------------------------------- */
+void ui_state_set_value(ui_state_t *s, uint32_t value_mm)
+{
+    s->value_ft = mm_to_ft_milli(value_mm);
+
+    if (FORM_IDLE == s->form)
+    {
+        s->form    = FORM_A;
+        s->digital = DIGIT_M;
+    }
+
+    display_refresh(s);
+}
+
+/* ----------------------------------------------------------------------
  *  渲染: 按当前状态刷新整屏。
  * ---------------------------------------------------------------------- */
 void display_refresh(const ui_state_t *s)
@@ -548,7 +570,17 @@ void display_refresh(const ui_state_t *s)
     /* 数字 7 态换算显示: 仅非 IDLE 形态显示 */
     if (FORM_IDLE != s->form)
     {
-        lcd_convert_show(frame, s->digital, lcd_base_ft(s->form), forward);
+        /* 按形态计算档位长度: B = A - 0.125ft, C = A - 0.375ft */
+        uint32_t base_ft = s->value_ft;
+        if (FORM_B == s->form)
+        {
+            base_ft -= FORM_OFFSET_B;
+        }
+        else if (FORM_C == s->form)
+        {
+            base_ft -= FORM_OFFSET_C;
+        }
+        lcd_convert_show(frame, s->digital, base_ft, forward);
     }
 
     /* T7 十字加号: 独立于形态/数字 */
