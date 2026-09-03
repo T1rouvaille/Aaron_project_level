@@ -8,8 +8,10 @@
  *  RA2E1 Data Flash 参数
  * ====================================================================== */
 #define FLASH_DF_BASE_ADDR       (0x40100000U)   /* Data Flash 基地址 */
-#define FLASH_DF_BLOCK_SIZE      (64U)           /* Data Flash 块大小 (字节) */
+#define FLASH_DF_BLOCK_SIZE      (1024U)         /* Data Flash 块大小 (字节) */
 #define FLASH_DF_WRITE_SIZE      (4U)            /* Data Flash 最小写入粒度 */
+#define FLASH_DF_SIZE            (4096U)         /* Data Flash 总大小 (字节) */
+#define FLASH_DF_TOTAL_BLOCKS    (4U)            /* Data Flash 总块数 (4096 / 1024) */
 
 /* ======================================================================
  *  对外接口

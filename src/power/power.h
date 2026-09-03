@@ -50,4 +50,10 @@ void power_activity(void);
  */
 power_state_t power_get_state(void);
 
+/*
+ * 读取并清除 1s 节拍标志 (主循环调用)。
+ * AGT1 每秒置位一次, 用于驱动时间统计等周期任务 (保持中断短小)。
+ */
+bool power_1s_tick_pending(void);
+
 #endif /* POWER_POWER_H_ */

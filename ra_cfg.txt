@@ -87,9 +87,9 @@ FSP Configuration
     R7FA2E1A73CFL.pincfg -> g_bsp_pin_cfg
       AVCC0 42 ANALOG0_AVCC0 - - - - - - - - IO "Read only" - 
       AVSS0 43 ANALOG0_AVSS0 - - - - - - - - IO "Read only" - 
-      P000 48 ADC0_AN000 - - - "Analog mode" - None "ADC0: AN000; CTSU0: TS21; ICU0: IRQ06" - IO - - 
+      P000 48 GPIO - - None "Output mode (Initial Low)" - - "ADC0: AN000; CTSU0: TS21; ICU0: IRQ06" - IO - - 
       P001 47 ADC0_AN001 - - - "Analog mode" - None "ADC0: AN001; CTSU0: TS22; ICU0: IRQ07" - IO - - 
-      P002 46 ADC0_AN002 - - - "Analog mode" - None "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
+      P002 46 GPIO - - None "Output mode (Initial High)" - - "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
       P010 45 ADC0_AN005 - - - "Analog mode" - None "ADC0: AN005; ANALOG0: VREFH0; CTSU0: TS30-CFC" - IO - - 
       P011 44 ADC0_AN006 - - - "Analog mode" - None "ADC0: AN006; ANALOG0: VREFL0; CTSU0: TS31-CFC" - IO - - 
       P012 41 ADC0_AN007 - - - "Analog mode" - None "ADC0: AN007; CTSU0: TS32-CFC" - IO - - 
@@ -136,9 +136,9 @@ FSP Configuration
     R7FA2E1A93CNE.pincfg -> 
       AVCC0 42 ANALOG0_AVCC0 - - - - - - - - IO "Read only" - 
       AVSS0 43 ANALOG0_AVSS0 - - - - - - - - IO "Read only" - 
-      P000 48 - - - - Disabled - None "ADC0: AN000; CTSU0: TS21; ICU0: IRQ06" - IO - - 
+      P000 48 - - - None Disabled - - "ADC0: AN000; CTSU0: TS21; ICU0: IRQ06" - IO - - 
       P001 47 - - - - Disabled - None "ADC0: AN001; CTSU0: TS22; ICU0: IRQ07" - IO - - 
-      P002 46 - - - - Disabled - None "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
+      P002 46 - - - None Disabled - - "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
       P010 45 - - - - Disabled - None "ADC0: AN005; ANALOG0: VREFH0; CTSU0: TS30-CFC" - IO - - 
       P011 44 - - - - Disabled - None "ADC0: AN006; ANALOG0: VREFL0; CTSU0: TS31-CFC" - IO - - 
       P012 41 - - - - Disabled - None "ADC0: AN007; CTSU0: TS32-CFC" - IO - - 
@@ -266,7 +266,7 @@ FSP Configuration
       General: Unit: 0
       General: Resolution: 12-Bit
       General: Alignment: Right
-      General: Clear after read: On
+      General: Clear after read: Off
       General: Mode: Continuous Scan
       General: Double-trigger: Disabled
       Input: Channel Scan Mask (channel availability varies by MCU): Channel 0, Channel 1, Channel 2, Channel 5, Channel 6, Channel 7, Channel 8, Channel 9, Channel 10, Channel 19, Channel 20, Channel 21, Channel 22

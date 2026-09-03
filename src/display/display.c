@@ -8,6 +8,7 @@
 #include "display.h"
 #include "lcd/lcd.h"
 #include "lcd/lcd_seg_map.h"
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -33,13 +34,6 @@ typedef enum
     UNIT_M,        /* 米   */
     UNIT_CM,       /* 厘米 */
 } unit_t;
-
-/* ----------------------------------------------------------------------
- *  档位差值 (0.001 ft): SW1 切换形态时相对 A 档的递减量。
- *    A -> B 减 0.125 ft, B -> C 再减 0.250 ft (A -> C 累计 0.375 ft)。
- * ---------------------------------------------------------------------- */
-#define FORM_OFFSET_B  (125UL)   /* B = A - 0.125 ft */
-#define FORM_OFFSET_C  (375UL)   /* C = A - 0.375 ft */
 
 /* ----------------------------------------------------------------------
  *  毫米 -> 千分之一英尺 (0.001 ft), 四舍五入:
@@ -339,14 +333,11 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
             lcd_show_unit(frame, UNIT_FT, forward);
             if (0U != in_milli)
             {
-                uint32_t in_int   = in_milli / 1000UL;
-                uint32_t in_frac  = in_milli % 1000UL;
-                uint8_t  frac_len = 3U;
-                while ((frac_len > 0U) && (0U == (in_frac % 10UL)))
-                {
-                    in_frac /= 10UL;
-                    frac_len--;
-                }
+                /* 副读数仅 1 位整数 + 1 位小数: 四舍五入到 0.1 英寸再拆分 */
+                uint32_t in_10    = (in_milli + 50UL) / 100UL;
+                uint32_t in_int   = in_10 / 10UL;
+                uint32_t in_frac  = in_10 % 10UL;
+                uint8_t  frac_len = (0U != in_frac) ? 1U : 0U;
                 lcd_show_sub_decimal(frame, in_int, in_frac, frac_len, forward);
                 lcd_show_unit(frame, UNIT_IN, forward);
             }
@@ -420,13 +411,14 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
  * ---------------------------------------------------------------------- */
 void ui_state_init(ui_state_t *s)
 {
-    s->form      = FORM_IDLE;
-    s->digital   = DIGIT_FT_DEC;
-    s->t7        = T7_OFF;
-    s->direction = DIR_FORWARD;
-    s->value_ft  = 0U;
-    s->sw3_first = true;
-    s->sw4_first = true;
+    s->form          = FORM_IDLE;
+    s->digital       = DIGIT_FT_DEC;
+    s->t7            = T7_OFF;
+    s->direction     = DIR_FORWARD;
+    s->value_ft      = 0U;
+    s->battery_level = 3U;
+    s->sw3_first     = true;
+    s->sw4_first     = true;
 
     display_refresh(s);
 }
@@ -490,6 +482,23 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
 }
 
 /* ----------------------------------------------------------------------
+ *  状态机: 设置电池电量格数, 变化时才刷屏。
+ * ---------------------------------------------------------------------- */
+void ui_state_set_battery(ui_state_t *s, uint8_t level)
+{
+    if (level > 3U)
+    {
+        level = 3U;
+    }
+
+    if (level != s->battery_level)
+    {
+        s->battery_level = level;
+        display_refresh(s);
+    }
+}
+
+/* ----------------------------------------------------------------------
  *  状态机: 设置显示方向, 方向变化时才刷屏。
  * ---------------------------------------------------------------------- */
 void ui_state_set_direction(ui_state_t *s, direction_t dir)
@@ -528,12 +537,23 @@ void display_refresh(const ui_state_t *s)
 
     memset(frame, LCD_SEG_OFF, sizeof(frame));
 
-    /* 常亮固定图标: T2 (水平仪) + T9~T12 (电量框/三格) */
+    /* 常亮固定图标: T2 (水平仪) + T9 (电量显示框) */
     lcd_show_icon(1U,  frame);  /* T2  水平仪 */
     lcd_show_icon(8U,  frame);  /* T9  电量显示框 */
-    lcd_show_icon(9U,  frame);  /* T10 第三格电量 */
-    lcd_show_icon(10U, frame);  /* T11 第二格电量 */
-    lcd_show_icon(11U, frame);  /* T12 第一格电量 */
+
+    /* 电量格: 满 3 格 (T10+T11+T12), 2 格 (T11+T12), 1 格 (T12), 0 格全灭 */
+    if (s->battery_level >= 1U)
+    {
+        lcd_show_icon(11U, frame);  /* T12 第一格 (最低) */
+    }
+    if (s->battery_level >= 2U)
+    {
+        lcd_show_icon(10U, frame);  /* T11 第二格 */
+    }
+    if (s->battery_level >= 3U)
+    {
+        lcd_show_icon(9U,  frame);  /* T10 第三格 (最高) */
+    }
 
     /* 按形式的图标组合 */
     switch (s->form)
@@ -583,10 +603,15 @@ void display_refresh(const ui_state_t *s)
         lcd_convert_show(frame, s->digital, base_ft, forward);
     }
 
-    /* T7 十字加号: 独立于形态/数字 */
+    /* T7 十字加号: 独立于形态/数字, 同步驱动 P000 指示输出 */
     if (T7_ON == s->t7)
     {
         lcd_show_icon(LCD_ICON_T7, frame);
+        R_IOPORT_PinWrite(&g_ioport_ctrl, T7_CTRL_PIN, T7_CTRL_LEVEL_ON);
+    }
+    else
+    {
+        R_IOPORT_PinWrite(&g_ioport_ctrl, T7_CTRL_PIN, T7_CTRL_LEVEL_OFF);
     }
 
     lcd_write_pattern(frame, LCD_SEG_NUM);

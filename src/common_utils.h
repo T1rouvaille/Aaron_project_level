@@ -35,8 +35,6 @@
 
 #define BIT_SHIFT_8  (8u)
 #define SIZE_64      (64u)
-#define V_ref         (3.3f)
-#define ADC_12_BIT    (4096u)
 
 #define LVL_ERR      (1u)       /* error conditions   */
 

@@ -14,15 +14,7 @@
 
 #include "hal_data.h"
 
-/* ----------------------------------------------------------------------
- *  引脚定义 (与 e2studio Pin 配置一致)
- *  A0  = P104  数据/命令选择 (0=命令, 1=数据)
- *  RST = P110  硬件复位 (低有效)
- *  CS  = P111  片选 (低有效)
- * ---------------------------------------------------------------------- */
-#define LCD_A0_PIN      (BSP_IO_PORT_01_PIN_04)
-#define LCD_RST_PIN     (BSP_IO_PORT_01_PIN_10)
-#define LCD_CS_PIN      (BSP_IO_PORT_01_PIN_11)
+/* 引脚 (LCD_A0/RST/CS_PIN) 与默认对比度 (LCD_DEFAULT_EV) 集中定义于 config.h */
 
 /* LCD 几何参数 */
 #define LCD_COM_NUM     (2U)    /* COM 数 (1/2 duty, 规格书) */
@@ -31,9 +23,6 @@
 /* 段点亮值: 1/2 duty, 每字节 bit0=COM0段, bit1=COM1段 */
 #define LCD_SEG_OFF     (0x00U) /* 段灭 */
 #define LCD_SEG_ON      (0x03U) /* 段亮 (2 个 COM 全开) */
-
-/* 默认对比度 (EV 0~31, 越大 V0 越高越亮; 过高会出现鬼影) */
-#define LCD_DEFAULT_EV  (0x0FU)
 
 /* 初始化 LCD (打开 SPI + 硬件复位 + 命令初始化) */
 fsp_err_t lcd_init(void);

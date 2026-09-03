@@ -9,6 +9,8 @@
 #ifndef KEY_KEY_H_
 #define KEY_KEY_H_
 
+#include <stdbool.h>
+
 /* 按键 ID */
 typedef enum
 {
@@ -35,5 +37,8 @@ void key_scan(void);
 
 /* 读取并清除指定按键的事件 (无事件返回 KEY_EVENT_NONE) */
 key_event_t key_get_event(key_id_t id);
+
+/* 查询按键当前是否处于按下状态 (原始电平, 供开机键检测) */
+bool key_is_pressed(key_id_t id);
 
 #endif /* KEY_KEY_H_ */

@@ -8,26 +8,9 @@
 
 #include "key/key.h"
 #include "hal_data.h"
+#include "config.h"
 
-/* ======================================================================
- *  引脚定义
- * ====================================================================== */
-#define KEY_SW1_PIN  (BSP_IO_PORT_09_PIN_13)   /* SW1: P913 */
-#define KEY_SW2_PIN  (BSP_IO_PORT_04_PIN_07)   /* SW2: P407 */
-#define KEY_SW3_PIN  (BSP_IO_PORT_04_PIN_08)   /* SW3: P408 */
-#define KEY_SW4_PIN  (BSP_IO_PORT_04_PIN_09)   /* SW4: P409 */
-
-/* 输入配置 (RA2E1 无内部下拉, 有内部上拉) */
-#define KEY_PIN_INPUT_CFG          (IOPORT_CFG_PORT_DIRECTION_INPUT)
-#define KEY_PIN_INPUT_CFG_PULLUP   (IOPORT_CFG_PORT_DIRECTION_INPUT | IOPORT_CFG_PULLUP_ENABLE)
-
-/* ======================================================================
- *  检测参数 (基于 10ms 扫描周期)
- * ====================================================================== */
-#define KEY_DEBOUNCE_CNT   (2U)     /* 消抖: 连续 2 次 (20ms) 稳定才确认 */
-#define KEY_LONG_PRESS_CNT (200U)   /* 长按阈值: 200 次 (2000ms) */
-
-/* 按下电平极性: 每个按键独立配置 (见 s_key_pressed_level 表) */
+/* 按键引脚/检测参数集中定义于 config.h */
 
 /* ======================================================================
  *  按键状态
@@ -169,4 +152,14 @@ key_event_t key_get_event(key_id_t id)
     e = s_keys[id].pending;
     s_keys[id].pending = KEY_EVENT_NONE;
     return e;
+}
+
+/* 查询按键当前是否处于按下状态 (原始电平, 供开机键检测) */
+bool key_is_pressed(key_id_t id)
+{
+    if (id >= KEY_NUM)
+    {
+        return false;
+    }
+    return key_read_raw(id);
 }

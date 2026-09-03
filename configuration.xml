@@ -225,7 +225,7 @@
       <property id="module.driver.adc.unit" value="0"/>
       <property id="module.driver.adc.resolution" value="module.driver.adc.resolution.resolution_12_bit"/>
       <property id="module.driver.adc.alignment" value="module.driver.adc.alignment.alignment_right"/>
-      <property id="module.driver.adc.clearing" value="module.driver.adc.clearing.clear_after_read_on"/>
+      <property id="module.driver.adc.clearing" value="module.driver.adc.clearing.clear_after_read_off"/>
       <property id="module.driver.adc.mode" value="module.driver.adc.mode.mode_continuous_scan"/>
       <property id="module.driver.adc.mode.dt" value="module.driver.adc.mode.dt.disabled"/>
       <property id="module.driver.adc.scan_mask" value="module.driver.adc.scan_mask.channel_0,module.driver.adc.scan_mask.channel_1,module.driver.adc.scan_mask.channel_2,module.driver.adc.scan_mask.channel_5,module.driver.adc.scan_mask.channel_6,module.driver.adc.scan_mask.channel_7,module.driver.adc.scan_mask.channel_8,module.driver.adc.scan_mask.channel_9,module.driver.adc.scan_mask.channel_10,module.driver.adc.scan_mask.channel_19,module.driver.adc.scan_mask.channel_20,module.driver.adc.scan_mask.channel_21,module.driver.adc.scan_mask.channel_22"/>
@@ -426,9 +426,7 @@
   </raModuleConfiguration>
   <raPinConfiguration>
     <pincfg active="true" name="R7FA2E1A73CFL.pincfg" selected="true" symbol="g_bsp_pin_cfg">
-      <configSetting altId="adc0.an00.p000" configurationId="adc0.an00"/>
       <configSetting altId="adc0.an01.p001" configurationId="adc0.an01"/>
-      <configSetting altId="adc0.an02.p002" configurationId="adc0.an02"/>
       <configSetting altId="adc0.an05.p010" configurationId="adc0.an05"/>
       <configSetting altId="adc0.an06.p011" configurationId="adc0.an06"/>
       <configSetting altId="adc0.an07.p012" configurationId="adc0.an07"/>
@@ -449,12 +447,12 @@
       <configSetting altId="iic0.scl.p400" configurationId="iic0.scl"/>
       <configSetting altId="iic0.sda.p401" configurationId="iic0.sda"/>
       <configSetting altId="irq0.mode.enabled" configurationId="irq0.mode"/>
-      <configSetting altId="p000.adc0.an00" configurationId="p000"/>
-      <configSetting altId="p000.gpio_mode.gpio_mode_an" configurationId="p000.gpio_mode"/>
+      <configSetting altId="p000.output.low" configurationId="p000"/>
+      <configSetting altId="p000.gpio_mode.gpio_mode_out.low" configurationId="p000.gpio_mode"/>
       <configSetting altId="p001.adc0.an01" configurationId="p001"/>
       <configSetting altId="p001.gpio_mode.gpio_mode_an" configurationId="p001.gpio_mode"/>
-      <configSetting altId="p002.adc0.an02" configurationId="p002"/>
-      <configSetting altId="p002.gpio_mode.gpio_mode_an" configurationId="p002.gpio_mode"/>
+      <configSetting altId="p002.output.high" configurationId="p002"/>
+      <configSetting altId="p002.gpio_mode.gpio_mode_out.high" configurationId="p002.gpio_mode"/>
       <configSetting altId="p010.adc0.an05" configurationId="p010"/>
       <configSetting altId="p010.gpio_mode.gpio_mode_an" configurationId="p010.gpio_mode"/>
       <configSetting altId="p011.adc0.an06" configurationId="p011"/>

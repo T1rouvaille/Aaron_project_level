@@ -65,6 +65,7 @@ typedef struct
     t7_t        t7;          /* T7 十字加号 */
     direction_t direction;   /* 显示方向 */
     uint32_t    value_ft;    /* A 档基准值 (0.001 ft), 由串口米值换算 */
+    uint8_t     battery_level; /* 电池电量格数 (0~3) */
     bool        sw3_first;   /* SW3 首次按下忽略标志 */
     bool        sw4_first;   /* SW4 首次按下忽略标志 */
 } ui_state_t;
@@ -95,6 +96,9 @@ void ui_state_set_direction(ui_state_t *s, direction_t dir);
 
 /* 设置测量值 (单位毫米): 由串口米值换算后调用, 开机 IDLE 态自动进入 A 形态并默认显示米 */
 void ui_state_set_value(ui_state_t *s, uint32_t value_mm);
+
+/* 设置电池电量格数 (0~3): 变化时才刷屏 */
+void ui_state_set_battery(ui_state_t *s, uint8_t level);
 
 /* 按当前状态刷新整屏 (渲染) */
 void display_refresh(const ui_state_t *s);

@@ -19,7 +19,7 @@ void uart9_send_blocking(const char *msg);
 /* 阻塞发送指定长度字节 */
 void Debug_UART9_SendBlocking(const uint8_t *data, uint32_t length);
 
-/* 串口接收一行 (数字字符串, 以回车结束), 非阻塞 */
+/* 串口接收一行 (数字或指令字符串, 以回车结束), 非阻塞 */
 bool uart9_line_ready(void);
 void uart9_get_line(char *out, uint8_t max);
 

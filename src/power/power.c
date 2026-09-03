@@ -8,11 +8,11 @@
 #include "config.h"
 #include <assert.h>
 
-/* 无按键操作自动关机相关 */
-#define AUTO_OFF_SEC   (60U)                 /* 无操作关机阈值 (秒) */
+/* AUTO_OFF_SEC 集中定义于 config.h */
 
 static volatile uint32_t       s_idle_sec    = 0U;             /* 无操作累计秒数 */
 static volatile power_state_t  s_power_state = POWER_STATE_ON; /* 电源状态机 */
+static volatile bool           s_tick_1s     = false;          /* AGT1 1s 节拍标志 (中断置位, 主循环消费) */
 
 void power_latch_init(void)
 {
@@ -33,7 +33,7 @@ void power_off(void)
     R_IOPORT_PinWrite(&g_ioport_ctrl, LATCH_PIN, LATCH_LEVEL_OFF);
 }
 
-/* AGT1 1s 周期中断回调: 累计无操作秒数, 达阈值进入 OFF_PENDING */
+/* AGT1 1s 周期中断回调: 仅置节拍标志 + 无操作倒计时 (保持中断短小) */
 void agt1_stats_callback(timer_callback_args_t *p_args)
 {
     if (TIMER_EVENT_CYCLE_END != p_args->event)
@@ -41,11 +41,26 @@ void agt1_stats_callback(timer_callback_args_t *p_args)
         return;
     }
 
+    s_tick_1s = true;
+
     s_idle_sec++;
     if (s_idle_sec >= AUTO_OFF_SEC)
     {
         s_power_state = POWER_STATE_OFF_PENDING;
     }
+}
+
+/* 读取并清除 1s 节拍标志 (主循环调用, 用于时间统计) */
+bool power_1s_tick_pending(void)
+{
+    bool pending;
+
+    __disable_irq();
+    pending   = s_tick_1s;
+    s_tick_1s = false;
+    __enable_irq();
+
+    return pending;
 }
 
 /* 启动 AGT1 1s 定时器 (用于 60s 无操作自动关机) */

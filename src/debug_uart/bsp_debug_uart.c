@@ -9,11 +9,11 @@
 #include <stdbool.h>
 #include "debug_uart/bsp_debug_uart.h"
 
-#define RX_LINE_MAX             (16U)   /* 一行数字字符串最大字符数 */
+#define RX_LINE_MAX             (32U)   /* 一行最大字符数 (数字/指令) */
 #define UART_TX_WAIT_TIMEOUT_LOOP   (2000000UL)
 
 static volatile uint8_t s_rx_char;                   /* 单字节接收缓冲 */
-static volatile char    s_rx_line[RX_LINE_MAX + 1U]; /* 行缓冲 (数字字符串) */
+static volatile char    s_rx_line[RX_LINE_MAX + 1U]; /* 行缓冲 (数字/指令字符串) */
 static volatile uint8_t s_rx_line_len = 0U;          /* 当前行长度 */
 static volatile bool    s_rx_line_ready = false;     /* 行接收完成标志 */
 static volatile bool    uart_send_complete_flag = true;
@@ -46,9 +46,9 @@ void debug_uart9_callback(uart_callback_args_t *p_args)
                     s_rx_line_ready = true;
                 }
             }
-            else if (((c >= '0') && (c <= '9')) || ('.' == c))
+            else if ((c >= 0x20U) && (c <= 0x7EU))
             {
-                /* 数字/小数点字符: 累积 (超长丢弃) */
+                /* 可打印 ASCII 字符 (数字/字母/符号): 累积 (超长丢弃) */
                 if (s_rx_line_len < RX_LINE_MAX)
                 {
                     s_rx_line[s_rx_line_len] = (char)c;

@@ -33,9 +33,7 @@
   </raClockConfiguration>
   <raPinConfiguration>
     <pincfg active="true" name="" symbol="">
-      <configSetting altId="adc0.an00.p000" configurationId="adc0.an00" isUsedByDriver="true"/>
       <configSetting altId="adc0.an01.p001" configurationId="adc0.an01" isUsedByDriver="true"/>
-      <configSetting altId="adc0.an02.p002" configurationId="adc0.an02" isUsedByDriver="true"/>
       <configSetting altId="adc0.an05.p010" configurationId="adc0.an05" isUsedByDriver="true"/>
       <configSetting altId="adc0.an06.p011" configurationId="adc0.an06" isUsedByDriver="true"/>
       <configSetting altId="adc0.an07.p012" configurationId="adc0.an07" isUsedByDriver="true"/>
@@ -48,6 +46,8 @@
       <configSetting altId="gpt5.gtioca.p500" configurationId="gpt5.gtioca"/>
       <configSetting altId="iic0.scl.p400" configurationId="iic0.scl" isUsedByDriver="true"/>
       <configSetting altId="iic0.sda.p401" configurationId="iic0.sda" isUsedByDriver="true"/>
+      <configSetting altId="p000.output.low" configurationId="p000"/>
+      <configSetting altId="p002.output.high" configurationId="p002"/>
       <configSetting altId="p100.output.low" configurationId="p100"/>
       <configSetting altId="p104.output.high" configurationId="p104"/>
       <configSetting altId="p110.output.high" configurationId="p110"/>

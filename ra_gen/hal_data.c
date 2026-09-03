@@ -288,7 +288,7 @@ const i2c_master_instance_t g_i2c_master0 =
 adc_instance_ctrl_t g_adc0_ctrl;
 const adc_extended_cfg_t g_adc0_cfg_extend =
 { .add_average_count = ADC_ADD_OFF,
-  .clearing = ADC_CLEAR_AFTER_READ_ON,
+  .clearing = ADC_CLEAR_AFTER_READ_OFF,
   .trigger = ADC_START_SOURCE_DISABLED,
   .trigger_group_b = ADC_START_SOURCE_DISABLED,
   .double_trigger_mode = ADC_DOUBLE_TRIGGER_DISABLED,
