@@ -3,7 +3,7 @@
  *
  *  ADC 模拟量采集实现: buck 7V 电压 + 电池电量 (原始值)。
  *  连续扫描 + 主循环 100ms 周期采样 (adc_sample_update) 读 ADDR 缓存。
- *  电池格数回滞 + 低电关机防抖。
+ *  电量格数/关机判定业务逻辑已拆分至 battery 应用层模块。
  */
 
 #include "adc.h"
@@ -12,11 +12,6 @@
 #include <assert.h>
 
 /* 通道/阈值/回滞/防抖参数集中定义于 config.h */
-
-/* 电池检测状态 */
-static uint8_t s_batt_level = 3U;   /* 当前电量格数 (1~3) */
-static uint8_t s_low_cnt    = 0U;   /* 低电连续计数 */
-static bool   s_batt_low    = false;/* 当前是否低于关机阈值 (供低电时长统计) */
 
 /* 主循环 100ms 采样缓存的通道原始值 (adc_sample_update 写入) */
 static volatile uint16_t s_buck_raw    = 0U;
@@ -65,72 +60,6 @@ void adc_sample_update(void)
     {
         s_battery_raw = val;
     }
-}
-
-void adc_battery_update(void)
-{
-    uint16_t raw = adc_read_battery_raw();
-
-    /* 电量格数回滞判定 (3 <-> 2 <-> 1) */
-    switch (s_batt_level)
-    {
-        case 3U:
-            if (raw < ADC_BATT_3TO2_RAW)
-            {
-                s_batt_level = 2U;   /* 3 -> 2 下降 */
-            }
-            break;
-
-        case 2U:
-            if (raw < ADC_BATT_2TO1_RAW)
-            {
-                s_batt_level = 1U;   /* 2 -> 1 下降 */
-            }
-            else if (raw >= (ADC_BATT_3TO2_RAW + ADC_BATT_HYST))
-            {
-                s_batt_level = 3U;   /* 2 -> 3 上升 */
-            }
-            break;
-
-        case 1U:
-        default:
-            if (raw >= (ADC_BATT_2TO1_RAW + ADC_BATT_HYST))
-            {
-                s_batt_level = 2U;   /* 1 -> 2 上升 */
-            }
-            break;
-    }
-
-    /* 低电关机防抖: 连续低于关机阈值计数 */
-    if (raw < ADC_BATT_OFF_RAW)
-    {
-        if (s_low_cnt < ADC_BATT_LOW_CNT_MAX)
-        {
-            s_low_cnt++;
-        }
-    }
-    else
-    {
-        s_low_cnt = 0U;
-    }
-
-    /* 当前低电状态 (供 1s 低电时长统计) */
-    s_batt_low = (raw < ADC_BATT_OFF_RAW);
-}
-
-uint8_t adc_get_battery_level(void)
-{
-    return s_batt_level;
-}
-
-bool adc_battery_is_low(void)
-{
-    return s_batt_low;
-}
-
-bool adc_battery_need_shutdown(void)
-{
-    return s_low_cnt >= ADC_BATT_LOW_CNT_MAX;
 }
 
 /* ----------------------------------------------------------------------

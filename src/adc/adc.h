@@ -12,7 +12,6 @@
 #define ADC_ADC_H_
 
 #include <stdint.h>
-#include <stdbool.h>
 
 /* ADC 初始化: Open + ScanCfg + ScanStart (连续扫描, 软件触发) */
 void adc_init(void);
@@ -25,17 +24,5 @@ uint16_t adc_read_buck_7v_raw(void);
 
 /* 读取电池电量检测原始值 (P015 -> ADC_CHANNEL_10, 0~4095) */
 uint16_t adc_read_battery_raw(void);
-
-/* 电池检测任务 (100ms 周期调用): 回滞更新电量格数 + 低电关机防抖计数 */
-void adc_battery_update(void);
-
-/* 获取当前电量格数 (1~3) */
-uint8_t adc_get_battery_level(void);
-
-/* 当前是否低于关机阈值 (供低电时长统计) */
-bool adc_battery_is_low(void);
-
-/* 是否满足低电关机条件 (连续 3 次低于关机阈值) */
-bool adc_battery_need_shutdown(void);
 
 #endif /* ADC_ADC_H_ */

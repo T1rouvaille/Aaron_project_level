@@ -15,8 +15,11 @@
 #include "command.h"
 #include "param/param.h"
 #include "adc/adc.h"
+#include "battery/battery.h"
 #include "flash/flash.h"
+#include "power/power.h"
 #include "debug_uart/bsp_debug_uart.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -61,7 +64,7 @@ static void cmd_batt(const char *arg)
 
     sprintf(buf, "[ADC ] battery raw = %u (%u bars), buck 7V raw = %u\r\n",
             (unsigned)adc_read_battery_raw(),
-            (unsigned)adc_get_battery_level(),
+            (unsigned)battery_get_level(),
             (unsigned)adc_read_buck_7v_raw());
     uart9_send_blocking(buf);
 }
@@ -90,6 +93,33 @@ static void cmd_clear_all_flash(const char *arg)
     }
 }
 
+/* 外部按键输出 P002: 短按模拟 (上升沿 + 120ms 高电平) */
+static void cmd_key_short(const char *arg)
+{
+    (void)arg;
+
+    uart9_send_blocking("[CMD ] key short press\r\n");
+    power_key_out_start(KEY_OUT_SHORT_MS);
+}
+
+/* 外部按键输出 P002: 长按 3s 模拟 */
+static void cmd_key_long3(const char *arg)
+{
+    (void)arg;
+
+    uart9_send_blocking("[CMD ] key long press 3s\r\n");
+    power_key_out_start(KEY_OUT_LONG3_MS);
+}
+
+/* 外部按键输出 P002: 长按 5s 模拟 */
+static void cmd_key_long5(const char *arg)
+{
+    (void)arg;
+
+    uart9_send_blocking("[CMD ] key long press 5s\r\n");
+    power_key_out_start(KEY_OUT_LONG5_MS);
+}
+
 static void cmd_help(const char *arg);
 
 /* ----------------------------------------------------------------------
@@ -101,6 +131,9 @@ static const command_entry_t s_commands[] =
     { "AT+SAVE",            cmd_save,            "save statistics to flash"   },
     { "AT+BATT",            cmd_batt,            "print battery/buck ADC raw" },
     { "AT+CLEAR_ALL_FLASH", cmd_clear_all_flash, "erase all data flash"       },
+    { "AT+KEY_SHORT",       cmd_key_short,       "simulate ext key short press" },
+    { "AT+KEY_LONG3",       cmd_key_long3,       "simulate ext key long press 3s" },
+    { "AT+KEY_LONG5",       cmd_key_long5,       "simulate ext key long press 5s" },
     { "AT+HELP",            cmd_help,            "list all commands"          },
 };
 
@@ -270,7 +303,6 @@ void command_process_line(const char *line, ui_state_t *ui)
     const char *arg = NULL;
     uint32_t    i;
     uint32_t    mm;
-    char        buf[64];
 
     split_cmd(line, cmd, sizeof(cmd), &arg);
 
@@ -287,10 +319,5 @@ void command_process_line(const char *line, ui_state_t *ui)
     if (parse_meter_to_mm(line, &mm))
     {
         ui_state_set_value(ui, mm);
-
-        sprintf(buf, "[UART] RX %lu.%03lu m -> LCD\r\n",
-                (unsigned long)(mm / 1000U),
-                (unsigned long)(mm % 1000U));
-        uart9_send_blocking(buf);
     }
 }

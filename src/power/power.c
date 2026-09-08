@@ -14,6 +14,9 @@ static volatile uint32_t       s_idle_sec    = 0U;             /* 无操作累�
 static volatile power_state_t  s_power_state = POWER_STATE_ON; /* 电源状态机 */
 static volatile bool           s_tick_1s     = false;          /* AGT1 1s 节拍标志 (中断置位, 主循环消费) */
 
+static bool     s_key_out_active    = false;                   /* 外部按键输出进行中 */
+static uint32_t s_key_out_remain_ms = 0U;                      /* 剩余低电平时间 (ms) */
+
 void power_latch_init(void)
 {
     R_IOPORT_PinCfg(&g_ioport_ctrl, LATCH_PIN, LATCH_PIN_INIT_CFG);
@@ -26,11 +29,63 @@ void power_seq_init(void)
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_7V_PIN, BSP_IO_LEVEL_HIGH);
     R_BSP_SoftwareDelay(PWR_SEQ_DELAY_MS, BSP_DELAY_UNITS_MILLISECONDS);
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_5V_PIN, BSP_IO_LEVEL_HIGH);
+
+    /* EN_5V 拉高后直接拉低 P002 到空闲态 (不再发送上电握手脉冲) */
+    power_key_out_init();
 }
 
 void power_off(void)
 {
     R_IOPORT_PinWrite(&g_ioport_ctrl, LATCH_PIN, LATCH_LEVEL_OFF);
+}
+
+bool power_latch_is_low(void)
+{
+    bsp_io_level_t level = BSP_IO_LEVEL_LOW;
+
+    R_IOPORT_PinRead(&g_ioport_ctrl, LATCH_PIN, &level);
+    return (BSP_IO_LEVEL_LOW == level);
+}
+
+void power_key_out_init(void)
+{
+    R_IOPORT_PinWrite(&g_ioport_ctrl, KEY_OUT_PIN, KEY_OUT_LEVEL_IDLE);
+    s_key_out_active    = false;
+    s_key_out_remain_ms = 0U;
+}
+
+void power_key_out_start(uint32_t duration_ms)
+{
+    /* 已有输出进行中, 忽略新触发 */
+    if (s_key_out_active)
+    {
+        return;
+    }
+
+    /* 拉高产生上升沿, 记录时长, 由 poll 计时结束后拉低 */
+    R_IOPORT_PinWrite(&g_ioport_ctrl, KEY_OUT_PIN, KEY_OUT_LEVEL_ACTIVE);
+    s_key_out_remain_ms = duration_ms;
+    s_key_out_active    = true;
+}
+
+void power_key_out_poll(void)
+{
+    if (!s_key_out_active)
+    {
+        return;
+    }
+
+    /* 按 KEY_OUT_POLL_MS 步长递减, 计时结束拉高释放 */
+    if (s_key_out_remain_ms > KEY_OUT_POLL_MS)
+    {
+        s_key_out_remain_ms -= KEY_OUT_POLL_MS;
+    }
+    else
+    {
+        R_IOPORT_PinWrite(&g_ioport_ctrl, KEY_OUT_PIN, KEY_OUT_LEVEL_IDLE);
+        s_key_out_active    = false;
+        s_key_out_remain_ms = 0U;
+    }
 }
 
 /* AGT1 1s 周期中断回调: 仅置节拍标志 + 无操作倒计时 (保持中断短小) */

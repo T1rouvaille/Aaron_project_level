@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 基准点闪烁状态: 相位 (true=亮/false=灭) 与 100ms 节拍计数 */
+static bool    s_blink_phase = false;
+static uint8_t s_blink_cnt   = 0U;
+
 /* ======================================================================
  *  单位图标索引 (lcd_show_icon 0-based)
  * ====================================================================== */
@@ -417,8 +421,9 @@ void ui_state_init(ui_state_t *s)
     s->direction     = DIR_FORWARD;
     s->value_ft      = 0U;
     s->battery_level = 3U;
-    s->sw3_first     = true;
     s->sw4_first     = true;
+    s->ldm_on        = false;
+    s->ldm_ever_on   = false;
 
     display_refresh(s);
 }
@@ -431,6 +436,12 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
     switch (ev)
     {
         case UI_EVT_SW1_SHORT:
+            /* LDM 从未开启过时 SW1 无效, 不切换形态 */
+            if (!s->ldm_ever_on)
+            {
+                break;
+            }
+
             /* 图标形式循环: IDLE -> A -> B -> C -> A */
             if (FORM_IDLE == s->form)
             {
@@ -450,15 +461,13 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
             break;
 
         case UI_EVT_SW3_SHORT:
-            /* 首次按下忽略, 之后直接 A 形态 + 默认数字 (十进制英尺) */
-            if (s->sw3_first)
+            /* LDM 测量开/关往复: 开启瞬间基准点亮, 之后闪烁 */
+            s->ldm_on = !s->ldm_on;
+            if (s->ldm_on)
             {
-                s->sw3_first = false;
-            }
-            else
-            {
-                s->form    = FORM_A;
-                s->digital = DIGIT_FT_DEC;
+                s_blink_phase  = true;
+                s_blink_cnt    = 0U;
+                s->ldm_ever_on = true;   /* 记录: LDM 曾开启过 */
             }
             break;
 
@@ -555,32 +564,43 @@ void display_refresh(const ui_state_t *s)
         lcd_show_icon(9U,  frame);  /* T10 第三格 (最高) */
     }
 
-    /* 按形式的图标组合 */
+    /* 按形式的图标组合
+     *   箭头始终显示;
+     *   基准点 LDM 关闭时常亮, LDM 开启时随闪烁相位亮灭。 */
     switch (s->form)
     {
         case FORM_IDLE:
-            lcd_show_icon(0U, frame);    /* T1  水平向下的箭头 */
+            lcd_show_icon(0U, frame);    /* T1 箭头 */
             break;
 
         case FORM_A:
-            lcd_show_icon(0U,  frame);   /* T1  水平向下的箭头 */
-            lcd_show_icon(3U,  frame);   /* T4  一档基准 */
-            lcd_show_icon(4U,  frame);   /* T5  二档基准 */
-            lcd_show_icon(7U,  frame);   /* T8  三档校准 */
-            lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            lcd_show_icon(0U, frame);    /* T1 箭头 */
+            if ((!s->ldm_on) || s_blink_phase)
+            {
+                lcd_show_icon(3U,  frame);   /* T4  一档基准 */
+                lcd_show_icon(4U,  frame);   /* T5  二档基准 */
+                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            }
             break;
 
         case FORM_B:
-            lcd_show_icon(2U,  frame);   /* T3  更向下的箭头 */
-            lcd_show_icon(4U,  frame);   /* T5  二档基准 */
-            lcd_show_icon(7U,  frame);   /* T8  三档校准 */
-            lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            lcd_show_icon(2U, frame);    /* T3 箭头 */
+            if ((!s->ldm_on) || s_blink_phase)
+            {
+                lcd_show_icon(4U,  frame);   /* T5  二档基准 */
+                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            }
             break;
 
         case FORM_C:
-            lcd_show_icon(5U,  frame);   /* T6  最向下的箭头 */
-            lcd_show_icon(7U,  frame);   /* T8  三档校准 */
-            lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            lcd_show_icon(5U, frame);    /* T6 箭头 */
+            if ((!s->ldm_on) || s_blink_phase)
+            {
+                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(12U, frame);   /* T13 校准开关 */
+            }
             break;
 
         default:
@@ -607,12 +627,32 @@ void display_refresh(const ui_state_t *s)
     if (T7_ON == s->t7)
     {
         lcd_show_icon(LCD_ICON_T7, frame);
-        R_IOPORT_PinWrite(&g_ioport_ctrl, T7_CTRL_PIN, T7_CTRL_LEVEL_ON);
+        lcd_t7_ctrl(true);
     }
     else
     {
-        R_IOPORT_PinWrite(&g_ioport_ctrl, T7_CTRL_PIN, T7_CTRL_LEVEL_OFF);
+        lcd_t7_ctrl(false);
     }
 
     lcd_write_pattern(frame, LCD_SEG_NUM);
+}
+
+/* ----------------------------------------------------------------------
+ *  基准点闪烁节拍: 由 50ms 任务周期调用。
+ *  仅 LDM 开启时计数, 每 LCD_BLINK_TICK_CNT 次 (250ms) 翻转相位并重绘。
+ * ---------------------------------------------------------------------- */
+void ui_state_blink_tick(ui_state_t *s)
+{
+    if (!s->ldm_on)
+    {
+        return;
+    }
+
+    s_blink_cnt++;
+    if (s_blink_cnt >= LCD_BLINK_TICK_CNT)
+    {
+        s_blink_cnt   = 0U;
+        s_blink_phase = !s_blink_phase;
+        display_refresh(s);
+    }
 }

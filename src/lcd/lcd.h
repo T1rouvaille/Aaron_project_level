@@ -13,6 +13,7 @@
 #define LCD_LCD_H_
 
 #include "hal_data.h"
+#include <stdbool.h>
 
 /* 引脚 (LCD_A0/RST/CS_PIN) 与默认对比度 (LCD_DEFAULT_EV) 集中定义于 config.h */
 
@@ -52,5 +53,8 @@ void lcd_display_off(void);
 
 /* 设置对比度 (EV 0~63) */
 void lcd_set_contrast(uint8_t ev);
+
+/* 设置 T7 十字加号指示输出 (P000): on=true 拉高, on=false 拉低 */
+void lcd_t7_ctrl(bool on);
 
 #endif /* LCD_LCD_H_ */

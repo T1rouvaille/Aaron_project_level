@@ -47,7 +47,7 @@
       <configSetting altId="iic0.scl.p400" configurationId="iic0.scl" isUsedByDriver="true"/>
       <configSetting altId="iic0.sda.p401" configurationId="iic0.sda" isUsedByDriver="true"/>
       <configSetting altId="p000.output.low" configurationId="p000"/>
-      <configSetting altId="p002.output.high" configurationId="p002"/>
+      <configSetting altId="p002.output.low" configurationId="p002"/>
       <configSetting altId="p100.output.low" configurationId="p100"/>
       <configSetting altId="p104.output.high" configurationId="p104"/>
       <configSetting altId="p110.output.high" configurationId="p110"/>

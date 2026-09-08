@@ -9,6 +9,7 @@
 #define POWER_POWER_H_
 
 #include <stdbool.h>
+#include <stdint.h>
 
 /* 电源状态机 */
 typedef enum
@@ -33,6 +34,32 @@ void power_seq_init(void);
  * LATCH 拉低关机 (P301 -> LOW)。
  */
 void power_off(void);
+
+/*
+ * 查询 LATCH 引脚当前输出电平是否为低 (关机状态)。
+ * 供主循环检测关机动作, 统一触发清屏等收尾处理。
+ */
+bool power_latch_is_low(void);
+
+/*
+ * 外部按键输出 P002: 拉低到空闲态 (低电平)。
+ * 应在 EN_5V 拉高之后调用。
+ */
+void power_key_out_init(void);
+
+/*
+ * 外部按键输出 P002: 启动一次非阻塞按键模拟。
+ * 立即拉高 P002 (上升沿), 持续 duration_ms 后自动拉低释放。
+ * 需主循环周期调用 power_key_out_poll() 推进状态机。
+ * 若上一次输出尚未结束, 本次触发被忽略。
+ */
+void power_key_out_start(uint32_t duration_ms);
+
+/*
+ * 外部按键输出状态机轮询 (主循环 10ms 任务周期调用)。
+ * 计时结束后拉低 P002 回到空闲态。
+ */
+void power_key_out_poll(void);
 
 /*
  * 自动关机状态机: 启动 AGT1 1s 定时器, 无按键操作累计 60s 后进入 OFF_PENDING。

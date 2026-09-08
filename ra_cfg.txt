@@ -89,7 +89,7 @@ FSP Configuration
       AVSS0 43 ANALOG0_AVSS0 - - - - - - - - IO "Read only" - 
       P000 48 GPIO - - None "Output mode (Initial Low)" - - "ADC0: AN000; CTSU0: TS21; ICU0: IRQ06" - IO - - 
       P001 47 ADC0_AN001 - - - "Analog mode" - None "ADC0: AN001; CTSU0: TS22; ICU0: IRQ07" - IO - - 
-      P002 46 GPIO - - None "Output mode (Initial High)" - - "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
+      P002 46 GPIO - - None "Output mode (Initial Low)" - - "ADC0: AN002; CTSU0: TS23; ICU0: IRQ02" - IO - - 
       P010 45 ADC0_AN005 - - - "Analog mode" - None "ADC0: AN005; ANALOG0: VREFH0; CTSU0: TS30-CFC" - IO - - 
       P011 44 ADC0_AN006 - - - "Analog mode" - None "ADC0: AN006; ANALOG0: VREFL0; CTSU0: TS31-CFC" - IO - - 
       P012 41 ADC0_AN007 - - - "Analog mode" - None "ADC0: AN007; CTSU0: TS32-CFC" - IO - - 

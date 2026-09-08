@@ -185,6 +185,13 @@ void lcd_set_contrast(uint8_t ev)
     lcd_write_cmd(LCD_CMD_CONTRAST(ev));
 }
 
+/* 设置 T7 十字加号指示输出 (P000): on=true 拉高, on=false 拉低 */
+void lcd_t7_ctrl(bool on)
+{
+    R_IOPORT_PinWrite(&g_ioport_ctrl, T7_CTRL_PIN,
+                      on ? T7_CTRL_LEVEL_ON : T7_CTRL_LEVEL_OFF);
+}
+
 /* 初始化 LCD */
 fsp_err_t lcd_init(void)
 {

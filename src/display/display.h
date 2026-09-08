@@ -66,8 +66,9 @@ typedef struct
     direction_t direction;   /* 显示方向 */
     uint32_t    value_ft;    /* A 档基准值 (0.001 ft), 由串口米值换算 */
     uint8_t     battery_level; /* 电池电量格数 (0~3) */
-    bool        sw3_first;   /* SW3 首次按下忽略标志 */
     bool        sw4_first;   /* SW4 首次按下忽略标志 */
+    bool        ldm_on;      /* LDM 测量开关 (SW3 短按往复) */
+    bool        ldm_ever_on; /* LDM 是否曾经开启过 (控制 SW1 有效性) */
 } ui_state_t;
 
 /* ======================================================================
@@ -77,7 +78,7 @@ typedef enum
 {
     UI_EVT_SW1_SHORT = 0,   /* SW1 短按: 图标形式循环 */
     UI_EVT_SW2_SHORT,       /* SW2 短按: 数字态循环 */
-    UI_EVT_SW3_SHORT,       /* SW3 短按: 直接 A 形态 (首次忽略) */
+    UI_EVT_SW3_SHORT,       /* SW3 短按: LDM 测量开/关往复 */
     UI_EVT_SW4_SHORT,       /* SW4 短按: T7 往复 (首次忽略) */
 } ui_event_t;
 
@@ -102,5 +103,8 @@ void ui_state_set_battery(ui_state_t *s, uint8_t level);
 
 /* 按当前状态刷新整屏 (渲染) */
 void display_refresh(const ui_state_t *s);
+
+/* 基准点闪烁节拍: 由 100ms 任务周期调用, LDM 开启时翻转相位并重绘 */
+void ui_state_blink_tick(ui_state_t *s);
 
 #endif /* DISPLAY_DISPLAY_H_ */

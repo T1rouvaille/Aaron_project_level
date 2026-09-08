@@ -451,8 +451,8 @@
       <configSetting altId="p000.gpio_mode.gpio_mode_out.low" configurationId="p000.gpio_mode"/>
       <configSetting altId="p001.adc0.an01" configurationId="p001"/>
       <configSetting altId="p001.gpio_mode.gpio_mode_an" configurationId="p001.gpio_mode"/>
-      <configSetting altId="p002.output.high" configurationId="p002"/>
-      <configSetting altId="p002.gpio_mode.gpio_mode_out.high" configurationId="p002.gpio_mode"/>
+      <configSetting altId="p002.output.low" configurationId="p002"/>
+      <configSetting altId="p002.gpio_mode.gpio_mode_out.low" configurationId="p002.gpio_mode"/>
       <configSetting altId="p010.adc0.an05" configurationId="p010"/>
       <configSetting altId="p010.gpio_mode.gpio_mode_an" configurationId="p010.gpio_mode"/>
       <configSetting altId="p011.adc0.an06" configurationId="p011"/>
