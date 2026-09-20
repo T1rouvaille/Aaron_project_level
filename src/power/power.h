@@ -11,13 +11,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* 电源状态机 */
-typedef enum
-{
-    POWER_STATE_ON = 0,        /* 运行中 */
-    POWER_STATE_OFF_PENDING,   /* 无操作超时, 待主循环执行关机 */
-} power_state_t;
-
 /*
  * LATCH 上电保持: 配置 P301 为输出并拉高开机。
  * 应在系统初始化最前面调用。
@@ -62,20 +55,21 @@ void power_key_out_start(uint32_t duration_ms);
 void power_key_out_poll(void);
 
 /*
- * 自动关机状态机: 启动 AGT1 1s 定时器, 无按键操作累计 60s 后进入 OFF_PENDING。
+ * 启动 AGT1 1s 定时器: 提供 1s 节拍 + 无操作秒数累加。
+ * 用于无操作分级自动关闭 (30min 关 LDM / 2h 关 laser)。
  * 应在系统初始化完成后调用。
  */
 void power_autooff_init(void);
 
 /*
- * 有按键操作时调用, 重置自动关机状态机回 ON。
+ * 有按键操作时调用, 重置无操作计时。
  */
 void power_activity(void);
 
 /*
- * 查询电源状态 (主循环轮询)。返回 POWER_STATE_OFF_PENDING 时应调用 power_off()。
+ * 读取当前无操作累计秒数 (供应用层做分级自动关闭判断)。
  */
-power_state_t power_get_state(void);
+uint32_t power_get_idle_sec(void);
 
 /*
  * 读取并清除 1s 节拍标志 (主循环调用)。

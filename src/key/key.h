@@ -41,4 +41,7 @@ key_event_t key_get_event(key_id_t id);
 /* 查询按键当前是否处于按下状态 (原始电平, 供开机键检测) */
 bool key_is_pressed(key_id_t id);
 
+/* 预置某键为「已按下」状态 (开机键检测用): 后续松开由 key_scan 产生唯一一次短按事件 */
+void key_preset_pressed(key_id_t id);
+
 #endif /* KEY_KEY_H_ */

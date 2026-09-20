@@ -22,6 +22,7 @@ typedef struct
     bool         pressed;         /* 是否处于按下状态 */
     uint16_t     press_cnt;       /* 按下持续时间 (单位 x10ms) */
     bool         long_triggered;  /* 长按是否已触发 */
+    bool         suppress_long;   /* 开机预置: 本次按下不触发长按 */
     key_event_t  pending;         /* 待消费事件 */
 } key_slot_t;
 
@@ -111,8 +112,9 @@ void key_scan(void)
             }
             else
             {
-                /* 按下保持: 计数达到阈值立即触发长按 */
-                if (k->press_cnt < KEY_LONG_PRESS_CNT)
+                /* 按下保持: 计数达到阈值立即触发长按。
+                 * 开机预置的键 (suppress_long) 本次按下不触发长按。 */
+                if (!k->suppress_long && (k->press_cnt < KEY_LONG_PRESS_CNT))
                 {
                     k->press_cnt++;
                     if (k->press_cnt >= KEY_LONG_PRESS_CNT)
@@ -128,7 +130,8 @@ void key_scan(void)
             if (k->pressed)
             {
                 /* 释放沿: 未触发过长按则判为短按 */
-                k->pressed = false;
+                k->pressed       = false;
+                k->suppress_long = false;   /* 松开后清除开机预置的抑制 */
                 if (!k->long_triggered)
                 {
                     k->pending = KEY_EVENT_SHORT_PRESS;
@@ -162,4 +165,26 @@ bool key_is_pressed(key_id_t id)
         return false;
     }
     return key_read_raw(id);
+}
+
+/* ----------------------------------------------------------------------
+ *  预置某键为「已按下」状态 (开机键检测用)。
+ *  开机键上电时已按住: 预置 stable=true + pressed=true, 松开时由 key_scan
+ *  产生唯一一次短按事件, 避免与 boot 特判重复触发 (否则会 toggle 反相)。
+ *  stable 预置为 true 可避免首次扫描在消抖完成前误判松开。
+ * ---------------------------------------------------------------------- */
+void key_preset_pressed(key_id_t id)
+{
+    if (id >= KEY_NUM)
+    {
+        return;
+    }
+
+    s_keys[id].stable         = true;
+    s_keys[id].debounce_cnt   = 0U;
+    s_keys[id].pressed        = true;
+    s_keys[id].press_cnt      = 0U;
+    s_keys[id].long_triggered = false;
+    s_keys[id].suppress_long  = true;   /* 开机预置: 本次按下不触发长按关机 */
+    s_keys[id].pending        = KEY_EVENT_NONE;
 }

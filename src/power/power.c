@@ -1,18 +1,17 @@
 /*
  * power.c
  *
- *  电源控制实现: LATCH 开机保持 + EN 7V/5V 上电时序 + 无操作自动关机状态机。
+ *  电源控制实现: LATCH 开机保持 + EN 7V/5V 上电时序 + 无操作计时。
  */
 
 #include "power.h"
 #include "config.h"
 #include <assert.h>
 
-/* AUTO_OFF_SEC 集中定义于 config.h */
+/* LDM/LASER 分级自动关闭阈值集中定义于 config.h */
 
-static volatile uint32_t       s_idle_sec    = 0U;             /* 无操作累计秒数 */
-static volatile power_state_t  s_power_state = POWER_STATE_ON; /* 电源状态机 */
-static volatile bool           s_tick_1s     = false;          /* AGT1 1s 节拍标志 (中断置位, 主循环消费) */
+static volatile uint32_t s_idle_sec = 0U;    /* 无操作累计秒数 (AGT1 中断累加, 按键清零) */
+static volatile bool     s_tick_1s  = false; /* AGT1 1s 节拍标志 (中断置位, 主循环消费) */
 
 static bool     s_key_out_active    = false;                   /* 外部按键输出进行中 */
 static uint32_t s_key_out_remain_ms = 0U;                      /* 剩余低电平时间 (ms) */
@@ -88,7 +87,7 @@ void power_key_out_poll(void)
     }
 }
 
-/* AGT1 1s 周期中断回调: 仅置节拍标志 + 无操作倒计时 (保持中断短小) */
+/* AGT1 1s 周期中断回调: 仅置节拍标志 + 无操作秒数累加 (保持中断短小) */
 void agt1_stats_callback(timer_callback_args_t *p_args)
 {
     if (TIMER_EVENT_CYCLE_END != p_args->event)
@@ -97,12 +96,7 @@ void agt1_stats_callback(timer_callback_args_t *p_args)
     }
 
     s_tick_1s = true;
-
     s_idle_sec++;
-    if (s_idle_sec >= AUTO_OFF_SEC)
-    {
-        s_power_state = POWER_STATE_OFF_PENDING;
-    }
 }
 
 /* 读取并清除 1s 节拍标志 (主循环调用, 用于时间统计) */
@@ -118,7 +112,7 @@ bool power_1s_tick_pending(void)
     return pending;
 }
 
-/* 启动 AGT1 1s 定时器 (用于 60s 无操作自动关机) */
+/* 启动 AGT1 1s 定时器 (提供 1s 节拍 + 无操作秒数累加) */
 void power_autooff_init(void)
 {
     fsp_err_t err = R_AGT_Open(&g_agt1_ctrl, &g_agt1_cfg);
@@ -128,17 +122,16 @@ void power_autooff_init(void)
     assert(FSP_SUCCESS == err);
 }
 
-/* 按键活动: 重置自动关机状态机回 ON */
+/* 按键活动: 重置无操作计时 */
 void power_activity(void)
 {
     __disable_irq();
-    s_idle_sec    = 0U;
-    s_power_state = POWER_STATE_ON;
+    s_idle_sec = 0U;
     __enable_irq();
 }
 
-/* 查询电源状态 */
-power_state_t power_get_state(void)
+/* 读取当前无操作累计秒数 (32 位对齐读在 Cortex-M23 上原子, 直接返回) */
+uint32_t power_get_idle_sec(void)
 {
-    return s_power_state;
+    return s_idle_sec;
 }

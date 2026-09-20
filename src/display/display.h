@@ -101,6 +101,13 @@ void ui_state_set_value(ui_state_t *s, uint32_t value_mm);
 /* 设置电池电量格数 (0~3): 变化时才刷屏 */
 void ui_state_set_battery(ui_state_t *s, uint8_t level);
 
+/* 关闭 LDM 测量 (若已开): 状态变化时刷屏并返回 true, 未开返回 false。
+ * 用于无操作超时自动关闭; 返回 true 时调用方需补发 P002 脉冲通知外部 MCU。 */
+bool ui_state_ldm_off(ui_state_t *s);
+
+/* 关闭 T7 十字加号 (若已显示): 状态变化时刷屏 (内含 P000 拉低)。用于无操作超时自动关闭 */
+void ui_state_t7_off(ui_state_t *s);
+
 /* 按当前状态刷新整屏 (渲染) */
 void display_refresh(const ui_state_t *s);
 

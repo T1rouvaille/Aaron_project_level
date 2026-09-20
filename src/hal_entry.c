@@ -23,8 +23,17 @@ FSP_CPP_FOOTER
  * ---------------------------------------------------------------------- */
 static void app_init(ui_state_t *ui)
 {
+    bool boot_sw3;
+    bool boot_sw4;
+
     /* LATCH 上电保持：P301 拉高开机 */
     power_latch_init();
+
+    /* 开机键尽早采样: 上电后立即读 SW3/SW4 原始电平。
+     * 快速短按开机时按键只保持很短时间, 若等外设初始化完再读会漏检;
+     * 按键引脚方向在 WarmStart 的 R_IOPORT_Open 已配置为输入, 可直接读取。 */
+    boot_sw3 = key_is_pressed(KEY_ID_SW3);
+    boot_sw4 = key_is_pressed(KEY_ID_SW4);
 
     /* UART 初始化 */
     Debug_UART9_Init();
@@ -67,7 +76,7 @@ static void app_init(ui_state_t *ui)
     /* ADC 初始化 (buck 7V 电压检测 P014 + 电池电量检测 P015) */
     adc_init();
 
-    /* 自动关机定时器: AGT1 1s, 无操作 60s 后关机 */
+    /* 无操作计时定时器: AGT1 1s 节拍 + 无操作秒数累加 (分级自动关闭) */
     power_autooff_init();
 
     /* 启动信息打印 */
@@ -86,15 +95,28 @@ static void app_init(ui_state_t *ui)
     /* 初始化状态机到开机初始态并刷屏 */
     ui_state_init(ui);
 
-    /* 开机键检测: 按 SW4 开机 -> 显示 T7 + 拉高 P000; 否则首次短按立即响应 */
-    if (key_is_pressed(KEY_ID_SW4))
+    /* 开机键特判 (用上电瞬间采样结果, 而非此刻电平) */
+    if (boot_sw4)
     {
+        /* 按 SW4 开机: 显示 T7 + 拉高 P000。
+         * sw4_first 保持 true (初始值), 松开时 key_scan 产生的 SW4_SHORT
+         * 会命中「首次忽略」分支被吞掉, 故 t7 不会被翻转, 保持点亮。
+         * 预置 SW4 已按下: 抑制本次长按 (开机按住不应触发关机)。 */
         ui->t7 = T7_ON;
         display_refresh(ui);
+        key_preset_pressed(KEY_ID_SW4);
     }
     else
     {
         ui->sw4_first = false;
+    }
+
+    if (boot_sw3)
+    {
+        /* 按 SW3 开机: 预置为已按下, 松开时由 key_scan 产生唯一一次短按开启 LDM。
+         * 不能在此直接 dispatch SW3_SHORT: 否则松开时 key_scan 会再触发一次,
+         * 导致 LDM 被反复 toggle 而反相。 */
+        key_preset_pressed(KEY_ID_SW3);
     }
 }
 
@@ -223,8 +245,9 @@ static void app_process_100ms(ui_state_t *ui)
     /* ADC 采样: 读 buck 7V + 电池原始值到缓存 (100ms 周期) */
     adc_sample_update();
 
-    /* 电源监控: 更新电量格数 + 低电/BUCK 失效关机判定 */
-    battery_update();
+    /* 电源监控: 更新电量格数 + 低电/BUCK 失效关机判定
+     * (阈值随 LDM/T7 负载状态动态调整) */
+    battery_update(ui->ldm_on, (T7_ON == ui->t7));
     ui_state_set_battery(ui, battery_get_level());
 
     /* 保护关机: BUCK 失效优先级高于低电 */
@@ -258,6 +281,30 @@ static void app_process_100ms(ui_state_t *ui)
 }
 
 /* ----------------------------------------------------------------------
+ *  无操作分级自动关闭 (1s 节拍调用):
+ *    无操作 30min 关 LDM, 2h 关 laser (只按键算操作, 计时由 power 模块维护)。
+ * ---------------------------------------------------------------------- */
+static void app_process_idle_autooff(ui_state_t *ui)
+{
+    uint32_t idle = power_get_idle_sec();
+
+    /* 关 LDM: 翻转 UI 状态, 并补发 P002 脉冲通知外部 MCU (与开 LDM 一致) */
+    if (idle >= LDM_AUTOOFF_SEC)
+    {
+        if (ui_state_ldm_off(ui))
+        {
+            power_key_out_start(KEY_OUT_SHORT_MS);
+        }
+    }
+
+    /* 关 laser: display_refresh 内含 lcd_t7_ctrl(false), 即 P000 拉低 */
+    if (idle >= LASER_AUTOOFF_SEC)
+    {
+        ui_state_t7_off(ui);
+    }
+}
+
+/* ----------------------------------------------------------------------
  *  主循环: 按节拍分派各周期任务
  * ---------------------------------------------------------------------- */
 static void app_run(ui_state_t *ui)
@@ -270,10 +317,11 @@ static void app_run(ui_state_t *ui)
             lcd_clear();
         }
 
-        /* AGT1 1s 节拍: 时间统计 */
+        /* AGT1 1s 节拍: 时间统计 + 无操作分级自动关闭 */
         if (power_1s_tick_pending())
         {
-            param_tick_1s(battery_is_low());
+            param_tick_1s(battery_is_low(), ui->ldm_on, (T7_ON == ui->t7));
+            app_process_idle_autooff(ui);
         }
 
         /* 1ms 任务 */

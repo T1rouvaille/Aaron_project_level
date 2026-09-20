@@ -18,7 +18,10 @@
 #define PARAM_FLASH_ADDR   (FLASH_DF_BASE_ADDR + PARAM_FLASH_OFFSET)
 
 /* 结构体版本 */
-#define PARAM_STRUCT_VER   (1U)
+#define PARAM_STRUCT_VER   (2U)
+
+/* 单位记忆默认值 = DIGIT_M (米), 与 display 层 digital_t 枚举对应 */
+#define PARAM_DEFAULT_DIGITAL   (5U)
 
 /* ======================================================================
  *  运行时参数实例 (RAM 镜像)
@@ -38,6 +41,8 @@ void param_set_defaults(void)
     strncpy(s_param.project_name, PARAM_PROJECT_NAME, sizeof(s_param.project_name) - 1U);
     strncpy(s_param.part_number,  PARAM_PART_NUMBER,  sizeof(s_param.part_number)  - 1U);
     strncpy(s_param.sw_version,   PARAM_SW_VERSION,   sizeof(s_param.sw_version)   - 1U);
+
+    s_param.last_digital = PARAM_DEFAULT_DIGITAL;
 }
 
 /* ======================================================================
@@ -51,8 +56,8 @@ fsp_err_t param_load(void)
         return err;
     }
 
-    /* 校验标记: 无效表示 Flash 未初始化或数据损坏 */
-    if (PARAM_MAGIC != s_param.magic)
+    /* 校验标记与结构体版本: 任一不匹配表示 Flash 未初始化 / 数据损坏 / 旧版本 */
+    if ((PARAM_MAGIC != s_param.magic) || (PARAM_STRUCT_VER != s_param.struct_ver))
     {
         return FSP_ERR_NOT_FOUND;
     }
@@ -105,13 +110,31 @@ void param_key_event(uint8_t key_id, bool is_long)
     }
 }
 
-void param_tick_1s(bool low_batt)
+void param_tick_1s(bool low_batt, bool ldm_on, bool t7_on)
 {
     s_param.total_run_sec++;
 
     if (low_batt)
     {
         s_param.low_batt_sec++;
+    }
+
+    /* LDM/laser 分时状态统计: 4 态互斥穷尽, 每秒累加其一 */
+    if (ldm_on && t7_on)
+    {
+        s_param.time_slots[TIME_SLOT_BOTH_ON]++;
+    }
+    else if (ldm_on)
+    {
+        s_param.time_slots[TIME_SLOT_LDM_ONLY]++;
+    }
+    else if (t7_on)
+    {
+        s_param.time_slots[TIME_SLOT_LASER_ONLY]++;
+    }
+    else
+    {
+        s_param.time_slots[TIME_SLOT_NEITHER]++;
     }
 }
 
@@ -139,6 +162,16 @@ void param_add_time_slot(uint8_t idx, uint32_t sec)
 const param_t *param_get(void)
 {
     return &s_param;
+}
+
+uint8_t param_get_digital(void)
+{
+    return (uint8_t)s_param.last_digital;
+}
+
+void param_set_digital(uint8_t digital)
+{
+    s_param.last_digital = (uint32_t)digital;
 }
 
 /* ======================================================================
@@ -191,12 +224,27 @@ void param_print_all(void)
     uart9_send_blocking(buf);
     sprintf(buf, "Low Batt  : %lu s\r\n", (unsigned long)s_param.low_batt_sec);
     uart9_send_blocking(buf);
-    for (i = 0U; i < PARAM_TIME_SLOT_NUM; i++)
+    static const char *const s_state_name[TIME_SLOT_STATE_NUM] =
+    {
+        "LDM only", "Laser only", "LDM+Laser", "Both off",
+    };
+
+    for (i = 0U; i < (uint8_t)TIME_SLOT_STATE_NUM; i++)
+    {
+        sprintf(buf, "%-10s: %lu s\r\n", s_state_name[i],
+                (unsigned long)s_param.time_slots[i]);
+        uart9_send_blocking(buf);
+    }
+    for (i = (uint8_t)TIME_SLOT_STATE_NUM; i < PARAM_TIME_SLOT_NUM; i++)
     {
         sprintf(buf, "Slot[%u]   : %lu\r\n", (unsigned)i,
                 (unsigned long)s_param.time_slots[i]);
         uart9_send_blocking(buf);
     }
+
+    uart9_send_blocking("---- Unit Memory ----\r\n");
+    sprintf(buf, "Last Digital: %lu\r\n", (unsigned long)s_param.last_digital);
+    uart9_send_blocking(buf);
 
     uart9_send_blocking("---- Shutdown Reason ----\r\n");
     sprintf(buf, "Last      : %s\r\n",

@@ -9,10 +9,12 @@
 #include "lcd/lcd.h"
 #include "lcd/lcd_seg_map.h"
 #include "config.h"
+#include "param/param.h"
 #include <stdio.h>
 #include <string.h>
 
-/* 基准点闪烁状态: 相位 (true=亮/false=灭) 与 100ms 节拍计数 */
+/* 基准点闪烁状态: 灭相标志 (true=灭) 与 50ms 节拍计数。
+ * 收到距离数据触发一次闪烁 (灭 250ms), tick 到点后恢复常亮。 */
 static bool    s_blink_phase = false;
 static uint8_t s_blink_cnt   = 0U;
 
@@ -158,23 +160,95 @@ static void lcd_show_unit(uint8_t *frame, unit_t unit, bool forward)
 }
 
 /* ----------------------------------------------------------------------
- *  分数显示 num/den (如 1/8): 横排 分子左/分母右, 斜杠 T24 两点亮
- *    正向: 分子 P5, 分母 P6, 斜杠 T24 居中
- *    反向: 分子 P6(倒置), 分母 P5(倒置), 斜杠 T24
- * ---------------------------------------------------------------------- */
-static void lcd_show_fraction(uint8_t *frame, uint8_t num, uint8_t den, bool forward)
+
+  ---------------------------------------------------------------------- */
+static void frac_reduce(uint32_t num, uint32_t den, uint8_t *p_num, uint8_t *p_den)
 {
+    uint32_t a = num, b = den, t;
+
+    while (0U != b)
+    {
+        t = a % b;
+        a = b;
+        b = t;
+    }
+
+    *p_num = (uint8_t)(num / a);
+    *p_den = (uint8_t)(den / a);
+}
+
+/* ----------------------------------------------------------------------
+ *  分数显示 num/den (支持两位分子/分母, 约分后调用, 如 15/16、7/8):
+ *    斜杠 T24 固定于 P5/P6 之间; 分子右对齐紧贴斜杠, 分母左对齐紧贴斜杠:
+ *    正向: 分子十位 P4/个位 P5; 分母两位十位 P6/个位 P7, 一位时个位 P6
+ *    反向: 分子十位 P7/个位 P6; 分母两位十位 P5/个位 P4, 一位时个位 P5
+ * ---------------------------------------------------------------------- */
+static void lcd_show_fraction2(uint8_t *frame, uint8_t num, uint8_t den, bool forward)
+{
+    uint8_t n_tens = (uint8_t)(num / 10U);   /* 分子十位 (0~1) */
+    uint8_t n_ones = (uint8_t)(num % 10U);   /* 分子个位 */
+    uint8_t d_tens = (uint8_t)(den / 10U);   /* 分母十位 (0~1) */
+    uint8_t d_ones = (uint8_t)(den % 10U);   /* 分母个位 */
+
     lcd_show_icon(LCD_ICON_SLASH, frame);   /* 斜杠 T24 */
 
     if (forward)
     {
-        lcd_show_digit(5U, num, frame);     /* 分子 P5 */
-        lcd_show_digit(6U, den, frame);     /* 分母 P6 */
+        if (0U != n_tens) { lcd_show_digit(4U, n_tens, frame); }  /* 分子十位 P4 */
+        lcd_show_digit(5U, n_ones, frame);                        /* 分子个位 P5 (紧贴斜杠) */
+        if (0U != d_tens)                                        /* 分母两位 */
+        {
+            lcd_show_digit(6U, d_tens, frame);                    /* 分母十位 P6 (紧贴斜杠) */
+            lcd_show_digit(7U, d_ones, frame);                    /* 分母个位 P7 */
+        }
+        else                                                      /* 分母一位, 紧贴斜杠 */
+        {
+            lcd_show_digit(6U, d_ones, frame);                    /* 分母个位 P6 */
+        }
     }
     else
     {
-        lcd_show_digit_rot(6U, num, frame); /* 分子 P6 (倒置) */
-        lcd_show_digit_rot(5U, den, frame); /* 分母 P5 (倒置) */
+        if (0U != n_tens) { lcd_show_digit_rot(7U, n_tens, frame); }  /* 分子十位 P7 */
+        lcd_show_digit_rot(6U, n_ones, frame);                        /* 分子个位 P6 (紧贴斜杠) */
+        if (0U != d_tens)                                             /* 分母两位 */
+        {
+            lcd_show_digit_rot(5U, d_tens, frame);                    /* 分母十位 P5 (紧贴斜杠) */
+            lcd_show_digit_rot(4U, d_ones, frame);                    /* 分母个位 P4 */
+        }
+        else                                                          /* 分母一位, 紧贴斜杠 */
+        {
+            lcd_show_digit_rot(5U, d_ones, frame);                    /* 分母个位 P5 */
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------
+ *  副读数「整数 + 分数」显示 (如 3 1/8 英寸, 约分后调用, 各 1 位):
+ *    正向: 整数 P4, 分子 P5, 分母 P6, 斜杠 T24 居中
+ *    反向: 整数 P7, 分子 P6, 分母 P5 (倒置), 斜杠 T24
+ *  den=0 时仅显示整数 (无分数)。
+ * ---------------------------------------------------------------------- */
+static void lcd_show_sub_fraction(uint8_t *frame, uint8_t whole, uint8_t num, uint8_t den, bool forward)
+{
+    if (forward)
+    {
+        lcd_show_digit(4U, whole, frame);   /* 整数 P4 */
+        if (0U != den)
+        {
+            lcd_show_icon(LCD_ICON_SLASH, frame);
+            lcd_show_digit(5U, num, frame);   /* 分子 P5 */
+            lcd_show_digit(6U, den, frame);   /* 分母 P6 */
+        }
+    }
+    else
+    {
+        lcd_show_digit_rot(7U, whole, frame); /* 整数 P7 */
+        if (0U != den)
+        {
+            lcd_show_icon(LCD_ICON_SLASH, frame);
+            lcd_show_digit_rot(6U, num, frame);   /* 分子 P6 */
+            lcd_show_digit_rot(5U, den, frame);   /* 分母 P5 */
+        }
     }
 }
 
@@ -203,35 +277,6 @@ static void lcd_show_decimal(uint8_t *frame, uint32_t int_val,
         lcd_show_int_group(frame, digits, int_len, forward);
         lcd_show_frac_group(frame, digits, int_len,
                             (uint8_t)(int_len + frac_len), forward);
-    }
-}
-
-/* ----------------------------------------------------------------------
- *  副读数显示 (如 1.5 英寸): 用于双单位 "xx ft + y.y in"。
- *    正向: 整数在 P5, 小数点 T25, 小数在 P6
- *    反向: 整数在 P6(倒置), 小数点 T23, 小数在 P5(倒置)
- *    int_val 1 位整数, frac_val 小数, frac_len 0~1 位 (0=纯整数, 隐藏零头)
- * ---------------------------------------------------------------------- */
-static void lcd_show_sub_decimal(uint8_t *frame, uint32_t int_val,
-                                 uint32_t frac_val, uint8_t frac_len, bool forward)
-{
-    if (forward)
-    {
-        lcd_show_digit(5U, (uint8_t)(int_val % 10U), frame);      /* 整数 P5 */
-        if (frac_len > 0U)
-        {
-            lcd_show_icon(24U, frame);                            /* T25 */
-            lcd_show_digit(6U, (uint8_t)(frac_val % 10U), frame); /* 小数 P6 */
-        }
-    }
-    else
-    {
-        lcd_show_digit_rot(6U, (uint8_t)(int_val % 10U), frame);  /* 整数 P6 */
-        if (frac_len > 0U)
-        {
-            lcd_show_icon(22U, frame);                            /* T23 */
-            lcd_show_digit_rot(5U, (uint8_t)(frac_val % 10U), frame); /* 小数 P5 */
-        }
     }
 }
 
@@ -281,10 +326,10 @@ static void lcd_show_4int_1frac(uint8_t *frame, uint32_t int_val,
 /* ----------------------------------------------------------------------
  *  7 态换算显示: 根据 base_ft (0.001 ft) 动态换算并显示对应状态。
  *    0: 十进制英尺 (有效小数位)
- *    1: 英尺 + 分数 (1/8, 约分, 零头隐藏)
- *    2: 英尺 + 英寸 (双单位, 零头隐藏)
+ *    1: 英尺 + 分数 (1/16, 约分, 零头隐藏)
+ *    2: 英尺 + 英寸 (整数英尺 + 1/8 分数英寸副读数, 零头隐藏)
  *    3: 十进制英寸
- *    4: 英寸 + 分数 (1/2, 零头隐藏)
+ *    4: 英寸 + 分数 (1/16, 约分, 零头隐藏)
  *    5: 米 (有效小数位)
  *    6: 厘米 (4 位整数 + 1 位小数)
  * ---------------------------------------------------------------------- */
@@ -313,36 +358,56 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
             break;
         }
 
-        case DIGIT_FT_FRAC:   /* 英尺 + 分数 (1/8) */
+        case DIGIT_FT_FRAC:   /* 英尺 + 分数 (1/16, 约分, 零头隐藏) */
         {
             uint32_t ft_int = base_ft / 1000UL;
-            uint32_t n8     = ((base_ft % 1000UL) * 8UL + 500UL) / 1000UL;
-            lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
-            if (0U != n8)
+            uint32_t n16    = ((base_ft % 1000UL) * 16UL + 500UL) / 1000UL;
+            if (n16 >= 16UL)                 /* 四舍五入进位到整数英尺 */
             {
-                uint32_t num = n8, den = 8UL, a = num, b = den, t;
-                while (0U != b) { t = a % b; a = b; b = t; }
-                lcd_show_fraction(frame, (uint8_t)(num / a),
-                                  (uint8_t)(den / a), forward);
+                ft_int += 1UL;
+                n16     = 0UL;
+            }
+            lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
+            if (0U != n16)
+            {
+                uint8_t num, den;
+                frac_reduce(n16, 16UL, &num, &den);
+                lcd_show_fraction2(frame, num, den, forward);
             }
             lcd_show_unit(frame, UNIT_FT, forward);
             break;
         }
 
-        case DIGIT_FT_IN:   /* 英尺 + 英寸 (双单位) */
+        case DIGIT_FT_IN:   /* 英尺 + 英寸 (整数英尺 + 1/8 分数英寸, 副读数) */
         {
             uint32_t ft_int   = base_ft / 1000UL;
             uint32_t in_milli = (base_ft % 1000UL) * 12UL;
+            uint32_t in_int   = in_milli / 1000UL;
+            uint32_t n8       = ((in_milli % 1000UL) * 8UL + 500UL) / 1000UL;
+            if (n8 >= 8UL)                    /* 分数进位到整数英寸 */
+            {
+                in_int += 1UL;
+                n8      = 0UL;
+            }
+            if (in_int >= 12UL)               /* 整数英寸进位到英尺 */
+            {
+                ft_int += 1UL;
+                in_int  = 0UL;
+            }
             lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
             lcd_show_unit(frame, UNIT_FT, forward);
-            if (0U != in_milli)
+            if ((0U != in_int) || (0U != n8))
             {
-                /* 副读数仅 1 位整数 + 1 位小数: 四舍五入到 0.1 英寸再拆分 */
-                uint32_t in_10    = (in_milli + 50UL) / 100UL;
-                uint32_t in_int   = in_10 / 10UL;
-                uint32_t in_frac  = in_10 % 10UL;
-                uint8_t  frac_len = (0U != in_frac) ? 1U : 0U;
-                lcd_show_sub_decimal(frame, in_int, in_frac, frac_len, forward);
+                if (0U != n8)
+                {
+                    uint8_t num, den;
+                    frac_reduce(n8, 8UL, &num, &den);
+                    lcd_show_sub_fraction(frame, (uint8_t)in_int, num, den, forward);
+                }
+                else
+                {
+                    lcd_show_sub_fraction(frame, (uint8_t)in_int, 0U, 0U, forward);
+                }
                 lcd_show_unit(frame, UNIT_IN, forward);
             }
             break;
@@ -364,15 +429,22 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
             break;
         }
 
-        case DIGIT_IN_FRAC:   /* 英寸 + 分数 (1/2) */
+        case DIGIT_IN_FRAC:   /* 英寸 + 分数 (1/16, 约分, 零头隐藏) */
         {
             uint32_t total_in = base_ft * 12UL;
             uint32_t in_int   = total_in / 1000UL;
-            uint32_t n2       = ((total_in % 1000UL) * 2UL + 500UL) / 1000UL;
-            lcd_show_decimal(frame, in_int, 0U, 0U, forward);
-            if (0U != n2)
+            uint32_t n16      = ((total_in % 1000UL) * 16UL + 500UL) / 1000UL;
+            if (n16 >= 16UL)                 /* 四舍五入进位到整数英寸 */
             {
-                lcd_show_fraction(frame, (uint8_t)n2, 2U, forward);
+                in_int += 1UL;
+                n16     = 0UL;
+            }
+            lcd_show_decimal(frame, in_int, 0U, 0U, forward);
+            if (0U != n16)
+            {
+                uint8_t num, den;
+                frac_reduce(n16, 16UL, &num, &den);
+                lcd_show_fraction2(frame, num, den, forward);
             }
             lcd_show_unit(frame, UNIT_IN, forward);
             break;
@@ -416,7 +488,7 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
 void ui_state_init(ui_state_t *s)
 {
     s->form          = FORM_IDLE;
-    s->digital       = DIGIT_FT_DEC;
+    s->digital       = (digital_t)param_get_digital();   /* 记忆上次单位 */
     s->t7            = T7_OFF;
     s->direction     = DIR_FORWARD;
     s->value_ft      = 0U;
@@ -458,16 +530,16 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
         case UI_EVT_SW2_SHORT:
             /* 数字态循环: 0 -> 1 -> ... -> 6 -> 0 */
             s->digital = (digital_t)(((uint8_t)s->digital + 1U) % (uint8_t)DIGIT_NUM);
+            param_set_digital((uint8_t)s->digital);   /* 记忆切换后的单位 */
             break;
 
         case UI_EVT_SW3_SHORT:
-            /* LDM 测量开/关往复: 开启瞬间基准点亮, 之后闪烁 */
+            /* LDM 测量开/关往复: 开启瞬间基准点亮 */
             s->ldm_on = !s->ldm_on;
             if (s->ldm_on)
             {
-                s_blink_phase  = true;
-                s_blink_cnt    = 0U;
-                s->ldm_ever_on = true;   /* 记录: LDM 曾开启过 */
+                s_blink_phase  = false;   /* 开 LDM 不闪, 基准点常亮, 收到数据才闪 */
+                s->ldm_ever_on = true;    /* 记录: LDM 曾开启过 */
             }
             break;
 
@@ -508,6 +580,34 @@ void ui_state_set_battery(ui_state_t *s, uint8_t level)
 }
 
 /* ----------------------------------------------------------------------
+ *  状态机: 关闭 LDM 测量 (若已开)。用于无操作超时自动关闭。
+ *  返回 true 表示实际执行了关闭 (调用方需补发 P002 脉冲通知外部 MCU)。
+ * ---------------------------------------------------------------------- */
+bool ui_state_ldm_off(ui_state_t *s)
+{
+    if (s->ldm_on)
+    {
+        s->ldm_on = false;
+        display_refresh(s);
+        return true;
+    }
+    return false;
+}
+
+/* ----------------------------------------------------------------------
+ *  状态机: 关闭 T7 十字加号 (若已显示)。用于无操作超时自动关闭。
+ *  display_refresh 内含 lcd_t7_ctrl(false), 即 P000 拉低关 laser。
+ * ---------------------------------------------------------------------- */
+void ui_state_t7_off(ui_state_t *s)
+{
+    if (T7_ON == s->t7)
+    {
+        s->t7 = T7_OFF;
+        display_refresh(s);
+    }
+}
+
+/* ----------------------------------------------------------------------
  *  状态机: 设置显示方向, 方向变化时才刷屏。
  * ---------------------------------------------------------------------- */
 void ui_state_set_direction(ui_state_t *s, direction_t dir)
@@ -521,16 +621,26 @@ void ui_state_set_direction(ui_state_t *s, direction_t dir)
 
 /* ----------------------------------------------------------------------
  *  状态机: 设置测量值 (单位毫米), 内部换算为 A 档基准 (0.001 ft)。
- *  开机 IDLE 态收到首个数值时自动进入 A 形态并默认显示米。
+ *  仅 LDM 开启时接受并显示; 未开启则静默忽略串口数据。
+ *  开机 IDLE 态收到首个数值时自动进入 A 形态, 单位保持记忆值 (param)。
  * ---------------------------------------------------------------------- */
 void ui_state_set_value(ui_state_t *s, uint32_t value_mm)
 {
+    /* 未开 LDM 不显示距离 (收到数据直接忽略) */
+    if (!s->ldm_on)
+    {
+        return;
+    }
+
     s->value_ft = mm_to_ft_milli(value_mm);
+
+    /* 收到数据闪一次: 置灭相并清零计数, 由 blink_tick 在 250ms 后恢复 */
+    s_blink_phase = true;
+    s_blink_cnt   = 0U;
 
     if (FORM_IDLE == s->form)
     {
-        s->form    = FORM_A;
-        s->digital = DIGIT_M;
+        s->form = FORM_A;
     }
 
     display_refresh(s);
@@ -566,7 +676,7 @@ void display_refresh(const ui_state_t *s)
 
     /* 按形式的图标组合
      *   箭头始终显示;
-     *   基准点 LDM 关闭时常亮, LDM 开启时随闪烁相位亮灭。 */
+     *   基准点默认常亮, 收到数据时闪一次 (灭相短暂熄灭)。 */
     switch (s->form)
     {
         case FORM_IDLE:
@@ -575,7 +685,7 @@ void display_refresh(const ui_state_t *s)
 
         case FORM_A:
             lcd_show_icon(0U, frame);    /* T1 箭头 */
-            if ((!s->ldm_on) || s_blink_phase)
+            if (!s_blink_phase)
             {
                 lcd_show_icon(3U,  frame);   /* T4  一档基准 */
                 lcd_show_icon(4U,  frame);   /* T5  二档基准 */
@@ -586,7 +696,7 @@ void display_refresh(const ui_state_t *s)
 
         case FORM_B:
             lcd_show_icon(2U, frame);    /* T3 箭头 */
-            if ((!s->ldm_on) || s_blink_phase)
+            if (!s_blink_phase)
             {
                 lcd_show_icon(4U,  frame);   /* T5  二档基准 */
                 lcd_show_icon(7U,  frame);   /* T8  三档校准 */
@@ -596,7 +706,7 @@ void display_refresh(const ui_state_t *s)
 
         case FORM_C:
             lcd_show_icon(5U, frame);    /* T6 箭头 */
-            if ((!s->ldm_on) || s_blink_phase)
+            if (!s_blink_phase)
             {
                 lcd_show_icon(7U,  frame);   /* T8  三档校准 */
                 lcd_show_icon(12U, frame);   /* T13 校准开关 */
@@ -639,11 +749,12 @@ void display_refresh(const ui_state_t *s)
 
 /* ----------------------------------------------------------------------
  *  基准点闪烁节拍: 由 50ms 任务周期调用。
- *  仅 LDM 开启时计数, 每 LCD_BLINK_TICK_CNT 次 (250ms) 翻转相位并重绘。
+ *  收到数据置灭相后, 每 LCD_BLINK_TICK_CNT 次 (250ms) 恢复常亮并重绘。
  * ---------------------------------------------------------------------- */
 void ui_state_blink_tick(ui_state_t *s)
 {
-    if (!s->ldm_on)
+    /* 仅闪烁灭相时倒计时, 到点恢复常亮 */
+    if (!s_blink_phase)
     {
         return;
     }
@@ -652,7 +763,7 @@ void ui_state_blink_tick(ui_state_t *s)
     if (s_blink_cnt >= LCD_BLINK_TICK_CNT)
     {
         s_blink_cnt   = 0U;
-        s_blink_phase = !s_blink_phase;
+        s_blink_phase = false;
         display_refresh(s);
     }
 }

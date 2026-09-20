@@ -33,6 +33,17 @@
 /* 时间槽数量 (预留) */
 #define PARAM_TIME_SLOT_NUM  (10U)
 
+/* 时间槽用途: 前 4 个用于 LDM/laser 分时状态统计 (单位: 秒), 剩余 6 个预留。
+ * 4 态互斥穷尽: 每秒按当前 LDM/laser 开关组合累加其一。 */
+typedef enum
+{
+    TIME_SLOT_LDM_ONLY = 0,   /* LDM 单独开启 (ldm_on && !t7) */
+    TIME_SLOT_LASER_ONLY,     /* laser 单独开启 (!ldm_on && t7) */
+    TIME_SLOT_BOTH_ON,        /* LDM + laser 同时开启 (ldm_on && t7) */
+    TIME_SLOT_NEITHER,        /* 都不开启 (!ldm_on && !t7) */
+    TIME_SLOT_STATE_NUM,      /* 分时状态槽数量 (4) */
+} time_slot_id_t;
+
 /* ======================================================================
  *  关机原因枚举
  * ====================================================================== */
@@ -71,6 +82,9 @@ typedef struct
     /* 关机原因 */
     uint32_t last_reason;                    /* 最近一次关机原因 */
     uint32_t reason_cnt[SHUTDOWN_REASON_NUM];/* 各原因累计次数 */
+
+    /* 单位记忆 */
+    uint32_t last_digital;                   /* 上次显示单位 (digital_t 值 0~6) */
 } param_t;
 
 /* ======================================================================
@@ -96,8 +110,9 @@ void param_set_defaults(void);
 /* 记录一次按键事件 (key_id: 0~3, is_long: true=长按 / false=短按) */
 void param_key_event(uint8_t key_id, bool is_long);
 
-/* 每秒调用: 累计运行时长; low_batt=true 时同时累计低电时长 */
-void param_tick_1s(bool low_batt);
+/* 每秒调用: 累计运行时长; low_batt=true 时同时累计低电时长;
+ * 并按 ldm_on/t7_on 组合累加 LDM/laser 分时状态时长。 */
+void param_tick_1s(bool low_batt, bool ldm_on, bool t7_on);
 
 /* 记录关机原因 (设置 last_reason 并累计对应次数) */
 void param_set_shutdown_reason(shutdown_reason_t reason);
@@ -107,6 +122,16 @@ void param_add_time_slot(uint8_t idx, uint32_t sec);
 
 /* 获取参数指针 (只读访问) */
 const param_t *param_get(void);
+
+/* ----------------------------------------------------------------------
+ *  单位记忆 (供显示层读写上次使用的显示单位)
+ * ---------------------------------------------------------------------- */
+
+/* 读回上次显示单位 (digital_t 值 0~6) */
+uint8_t param_get_digital(void);
+
+/* 设置当前显示单位 (写入 RAM 镜像, 关机 param_save 时持久化) */
+void param_set_digital(uint8_t digital);
 
 /* ----------------------------------------------------------------------
  *  参数打印

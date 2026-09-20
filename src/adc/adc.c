@@ -45,6 +45,40 @@ uint16_t adc_read_battery_raw(void)
     return s_battery_raw;
 }
 
+/* 滑动平均滤波: 最近 N 次采样取平均, 抑制瞬时跳变导致的电量格数抖动/关机误判。
+ * 100ms 采样周期 -> 窗口 4 次 ≈ 0.4s 平滑。 */
+#define ADC_FILTER_WINDOW   (4U)
+
+static uint16_t s_buck_buf[ADC_FILTER_WINDOW];
+static uint16_t s_batt_buf[ADC_FILTER_WINDOW];
+static uint8_t  s_buck_idx  = 0U;
+static uint8_t  s_batt_idx  = 0U;
+static uint8_t  s_buck_cnt  = 0U;   /* 已累计采样数 (≤ 窗口, 未满时按实际数平均) */
+static uint8_t  s_batt_cnt  = 0U;
+
+/* 滑动平均: 写入新值到环形缓冲, 返回最近 cnt 次的平均值。 */
+static uint16_t adc_slide_avg(uint16_t *buf, uint16_t new_val,
+                              uint8_t *idx, uint8_t *cnt)
+{
+    uint32_t sum = 0U;
+    uint8_t  i;
+
+    buf[*idx] = new_val;
+    *idx = (uint8_t)((*idx + 1U) % ADC_FILTER_WINDOW);
+
+    if (*cnt < ADC_FILTER_WINDOW)
+    {
+        (*cnt)++;
+    }
+
+    for (i = 0U; i < *cnt; i++)
+    {
+        sum += buf[i];
+    }
+
+    return (uint16_t)(sum / *cnt);
+}
+
 /* 100ms 周期采样: 直接读 ADDR 更新 buck 7V + 电池原始值缓存。
  * 主循环调用, 避免在扫描完成中断里读 ADDR (连续扫描下与硬件写/读后清零竞争)。 */
 void adc_sample_update(void)
@@ -53,12 +87,12 @@ void adc_sample_update(void)
 
     if (FSP_SUCCESS == R_ADC_Read(&g_adc0_ctrl, ADC_CH_BUCK_7V, &val))
     {
-        s_buck_raw = val;
+        s_buck_raw = adc_slide_avg(s_buck_buf, val, &s_buck_idx, &s_buck_cnt);
     }
 
     if (FSP_SUCCESS == R_ADC_Read(&g_adc0_ctrl, ADC_CH_BATTERY, &val))
     {
-        s_battery_raw = val;
+        s_battery_raw = adc_slide_avg(s_batt_buf, val, &s_batt_idx, &s_batt_cnt);
     }
 }
 

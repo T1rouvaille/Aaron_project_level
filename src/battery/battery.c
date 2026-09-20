@@ -38,26 +38,49 @@ static void buck_update(void)
     }
 }
 
-void battery_update(void)
+/* ----------------------------------------------------------------------
+ *  计算电池阈值: 基准 (都关) 减去负载下调量。
+ *    SW4 (T7) 开 下调 ADC_BATT_T7_OFFSET,  SW3 (LDM) 开 下调 ADC_BATT_LDM_OFFSET。
+ * ---------------------------------------------------------------------- */
+static uint16_t batt_threshold(uint16_t base, bool ldm_on, bool t7_on)
 {
-    uint16_t raw = adc_read_battery_raw();
+    uint16_t v = base;
+
+    if (t7_on)
+    {
+        v = (uint16_t)(v - ADC_BATT_T7_OFFSET);
+    }
+    if (ldm_on)
+    {
+        v = (uint16_t)(v - ADC_BATT_LDM_OFFSET);
+    }
+
+    return v;
+}
+
+void battery_update(bool ldm_on, bool t7_on)
+{
+    uint16_t raw     = adc_read_battery_raw();
+    uint16_t off_raw = batt_threshold(ADC_BATT_OFF_BASE,  ldm_on, t7_on);
+    uint16_t t32_raw = batt_threshold(ADC_BATT_3TO2_BASE, ldm_on, t7_on);
+    uint16_t t21_raw = batt_threshold(ADC_BATT_2TO1_BASE, ldm_on, t7_on);
 
     /* 电量格数回滞判定 (3 <-> 2 <-> 1) */
     switch (s_batt_level)
     {
         case 3U:
-            if (raw < ADC_BATT_3TO2_RAW)
+            if (raw < t32_raw)
             {
                 s_batt_level = 2U;   /* 3 -> 2 下降 */
             }
             break;
 
         case 2U:
-            if (raw < ADC_BATT_2TO1_RAW)
+            if (raw < t21_raw)
             {
                 s_batt_level = 1U;   /* 2 -> 1 下降 */
             }
-            else if (raw >= (ADC_BATT_3TO2_RAW + ADC_BATT_HYST))
+            else if (raw >= (t32_raw + ADC_BATT_HYST))
             {
                 s_batt_level = 3U;   /* 2 -> 3 上升 */
             }
@@ -65,7 +88,7 @@ void battery_update(void)
 
         case 1U:
         default:
-            if (raw >= (ADC_BATT_2TO1_RAW + ADC_BATT_HYST))
+            if (raw >= (t21_raw + ADC_BATT_HYST))
             {
                 s_batt_level = 2U;   /* 1 -> 2 上升 */
             }
@@ -73,7 +96,7 @@ void battery_update(void)
     }
 
     /* 低电关机防抖: 连续低于关机阈值计数 */
-    if (raw < ADC_BATT_OFF_RAW)
+    if (raw < off_raw)
     {
         if (s_low_cnt < ADC_BATT_LOW_CNT_MAX)
         {
@@ -86,7 +109,7 @@ void battery_update(void)
     }
 
     /* 当前低电状态 (供 1s 低电时长统计) */
-    s_batt_low = (raw < ADC_BATT_OFF_RAW);
+    s_batt_low = (raw < off_raw);
 
     /* BUCK 7V 失效检测 */
     buck_update();
