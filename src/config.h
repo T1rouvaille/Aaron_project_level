@@ -91,7 +91,7 @@
 #define KEY_OUT_POLL_MS       (10U)
 
 /* ----------------------------------------------------------------------
- *  显示层: 档位差值 (0.001 ft), SW1 切换形态时相对 A 档的递减量。
+ *  显示层: 档位差值 (0.001 ft), SW2 切换形态时相对 A 档的递减量。
  *    A -> B 减 0.125 ft, B -> C 再减 0.250 ft (A -> C 累计 0.375 ft)。
  * ---------------------------------------------------------------------- */
 #define FORM_OFFSET_B         (125UL)                                                 /* B = A - 0.125 ft */
@@ -135,7 +135,7 @@
 #define ADC_BATT_3TO2_BASE     (1340U)                                                /* 3格->2格 基准 (都关) */
 #define ADC_BATT_2TO1_BASE     (1225U)                                                /* 2格->1格 基准 (都关) */
 #define ADC_BATT_T7_OFFSET     (10U)                                                  /* T7 (SW4) 开启下调量 */
-#define ADC_BATT_LDM_OFFSET    (20U)                                                  /* LDM (SW3) 开启下调量 */
+#define ADC_BATT_LDM_OFFSET    (10U)                                                  /* LDM (SW3) 开启下调量 */
 
 /* 回滞带 (ADC 原始值): 上升阈值 = 跳变阈值 + 回滞带 */
 #define ADC_BATT_HYST         (60U)

@@ -4,6 +4,7 @@
  *  按键检测实现 (4 键: SW1~SW4)
  *  四键均高有效 (按下接 VCC)
  *  消抖 20ms + 短按/长按状态机, 10ms 扫描周期
+ *  SW1/SW2 无长按功能: 按下沿即触发短按; SW3/SW4 有长按: 松开沿触发
  */
 
 #include "key/key.h"
@@ -23,6 +24,7 @@ typedef struct
     uint16_t     press_cnt;       /* 按下持续时间 (单位 x10ms) */
     bool         long_triggered;  /* 长按是否已触发 */
     bool         suppress_long;   /* 开机预置: 本次按下不触发长按 */
+    bool         fire_on_press;   /* 按下沿即触发短按 (SW1/SW2); false=松开沿触发 (SW3/SW4) */
     key_event_t  pending;         /* 待消费事件 */
 } key_slot_t;
 
@@ -72,6 +74,9 @@ void key_init(void)
     for (i = 0U; i < KEY_NUM; i++)
     {
         R_IOPORT_PinCfg(&g_ioport_ctrl, s_key_pins[i], s_key_pin_cfg[i]);
+
+        /* SW1/SW2 无长按功能, 按下沿即触发短按; SW3/SW4 有长按, 松开沿触发 */
+        s_keys[i].fire_on_press = (i < KEY_ID_SW3);
     }
 }
 
@@ -109,12 +114,19 @@ void key_scan(void)
                 k->pressed        = true;
                 k->press_cnt      = 0U;
                 k->long_triggered = false;
+
+                /* 按下即触发键 (SW1/SW2): 按下沿立即产生短按事件 */
+                if (k->fire_on_press)
+                {
+                    k->pending = KEY_EVENT_SHORT_PRESS;
+                }
             }
             else
             {
                 /* 按下保持: 计数达到阈值立即触发长按。
-                 * 开机预置的键 (suppress_long) 本次按下不触发长按。 */
-                if (!k->suppress_long && (k->press_cnt < KEY_LONG_PRESS_CNT))
+                 * 开机预置的键 (suppress_long) 本次按下不触发长按。
+                 * 按下即触发键 (SW1/SW2) 无长按功能, 不累加长按计数。 */
+                if (!k->fire_on_press && !k->suppress_long && (k->press_cnt < KEY_LONG_PRESS_CNT))
                 {
                     k->press_cnt++;
                     if (k->press_cnt >= KEY_LONG_PRESS_CNT)
@@ -129,10 +141,10 @@ void key_scan(void)
         {
             if (k->pressed)
             {
-                /* 释放沿: 未触发过长按则判为短按 */
+                /* 释放沿: 未触发过长按且非按下即触发键, 则判为短按 */
                 k->pressed       = false;
                 k->suppress_long = false;   /* 松开后清除开机预置的抑制 */
-                if (!k->long_triggered)
+                if (!k->long_triggered && !k->fire_on_press)
                 {
                     k->pending = KEY_EVENT_SHORT_PRESS;
                 }

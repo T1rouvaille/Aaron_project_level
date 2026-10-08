@@ -17,7 +17,7 @@
  *  状态定义 (明确枚举)
  * ====================================================================== */
 
-/* 图标形式: SW1 短按在 A -> B -> C -> A 间循环。
+/* 图标形式: SW2 短按在 A -> B -> C -> A 间循环。
  *   FORM_IDLE 仅作开机初始态 (不按键时的基础态), 不参与循环。 */
 typedef enum
 {
@@ -28,7 +28,7 @@ typedef enum
     FORM_NUM,        /* 形式总数 (用于循环计数) */
 } form_t;
 
-/* 数字换算态: SW2 短按循环, 7 态单位换算 (无关闭态)。 */
+/* 数字换算态: SW1 短按循环, 7 态单位换算 (无关闭态)。 */
 typedef enum
 {
     DIGIT_FT_DEC = 0,   /* 十进制英尺 */
@@ -68,7 +68,7 @@ typedef struct
     uint8_t     battery_level; /* 电池电量格数 (0~3) */
     bool        sw4_first;   /* SW4 首次按下忽略标志 */
     bool        ldm_on;      /* LDM 测量开关 (SW3 短按往复) */
-    bool        ldm_ever_on; /* LDM 是否曾经开启过 (控制 SW1 有效性) */
+    bool        ldm_ever_on; /* LDM 是否曾经开启过 (控制 SW2 有效性) */
 } ui_state_t;
 
 /* ======================================================================
@@ -76,8 +76,8 @@ typedef struct
  * ====================================================================== */
 typedef enum
 {
-    UI_EVT_SW1_SHORT = 0,   /* SW1 短按: 图标形式循环 */
-    UI_EVT_SW2_SHORT,       /* SW2 短按: 数字态循环 */
+    UI_EVT_SW1_SHORT = 0,   /* SW1 短按: 数字态循环 */
+    UI_EVT_SW2_SHORT,       /* SW2 短按: 图标形式循环 */
     UI_EVT_SW3_SHORT,       /* SW3 短按: LDM 测量开/关往复 */
     UI_EVT_SW4_SHORT,       /* SW4 短按: T7 往复 (首次忽略) */
 } ui_event_t;

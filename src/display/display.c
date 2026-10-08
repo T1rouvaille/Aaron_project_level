@@ -508,7 +508,13 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
     switch (ev)
     {
         case UI_EVT_SW1_SHORT:
-            /* LDM 从未开启过时 SW1 无效, 不切换形态 */
+            /* 数字态循环: 0 -> 1 -> ... -> 6 -> 0 */
+            s->digital = (digital_t)(((uint8_t)s->digital + 1U) % (uint8_t)DIGIT_NUM);
+            param_set_digital((uint8_t)s->digital);   /* 记忆切换后的单位 */
+            break;
+
+        case UI_EVT_SW2_SHORT:
+            /* LDM 从未开启过时 SW2 无效, 不切换形态 */
             if (!s->ldm_ever_on)
             {
                 break;
@@ -525,12 +531,6 @@ void ui_state_dispatch(ui_state_t *s, ui_event_t ev)
                           (((uint8_t)s->form - (uint8_t)FORM_A + 1U) %
                            ((uint8_t)FORM_NUM - 1U)));
             }
-            break;
-
-        case UI_EVT_SW2_SHORT:
-            /* 数字态循环: 0 -> 1 -> ... -> 6 -> 0 */
-            s->digital = (digital_t)(((uint8_t)s->digital + 1U) % (uint8_t)DIGIT_NUM);
-            param_set_digital((uint8_t)s->digital);   /* 记忆切换后的单位 */
             break;
 
         case UI_EVT_SW3_SHORT:
