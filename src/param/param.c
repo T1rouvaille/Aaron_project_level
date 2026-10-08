@@ -191,6 +191,18 @@ static const char *reason_to_str(shutdown_reason_t r)
     }
 }
 
+/* 统一关机处理: 记录原因 + 写回 Flash + 打印 (供各关机路径调用) */
+void param_log_shutdown(shutdown_reason_t reason)
+{
+    char buf[48];
+
+    param_set_shutdown_reason(reason);
+    (void)param_save();
+
+    sprintf(buf, "[PWR ] shutdown reason: %s\r\n", reason_to_str(reason));
+    uart9_send_blocking(buf);
+}
+
 void param_print_all(void)
 {
     char     buf[96];

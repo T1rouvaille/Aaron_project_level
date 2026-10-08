@@ -117,6 +117,9 @@ void param_tick_1s(bool low_batt, bool ldm_on, bool t7_on);
 /* 记录关机原因 (设置 last_reason 并累计对应次数) */
 void param_set_shutdown_reason(shutdown_reason_t reason);
 
+/* 统一关机处理: 记录原因 + 写回 Flash + 打印到串口 (供各关机路径调用) */
+void param_log_shutdown(shutdown_reason_t reason);
+
 /* 向预留时间槽累加秒数 (idx: 0~PARAM_TIME_SLOT_NUM-1) */
 void param_add_time_slot(uint8_t idx, uint32_t sec);
 

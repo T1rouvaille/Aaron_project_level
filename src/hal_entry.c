@@ -13,10 +13,26 @@
 #include "battery/battery.h"
 #include "param/param.h"
 #include "command/command.h"
+#include <stdio.h>
 
 FSP_CPP_HEADER
 void R_BSP_WarmStart(bsp_warm_start_event_t event);
 FSP_CPP_FOOTER
+
+/* ----------------------------------------------------------------------
+ *  关机现场诊断打印: 输出电池/BUCK 原始值, 便于区分「真低电」与「ADC 误读」。
+ *  仅用于 ADC 已初始化的关机路径 (低电/手动); I2C 失败关机时 ADC 未初始化, 不调用。
+ * ---------------------------------------------------------------------- */
+static void shutdown_print_raw(void)
+{
+    char buf[64];
+
+    sprintf(buf, "[PWR ] battery raw = %u (%u bars), buck raw = %u\r\n",
+            (unsigned)adc_read_battery_raw(),
+            (unsigned)battery_get_level(),
+            (unsigned)adc_read_buck_7v_raw());
+    uart9_send_blocking(buf);
+}
 
 /* ----------------------------------------------------------------------
  *  应用初始化: 外设初始化 + 启动打印 + UI 状态机初始化
@@ -51,8 +67,7 @@ static void app_init(ui_state_t *ui)
     if (IMU_SENSOR_NONE == imu_init())
     {
         /* 三款 IMU 均未识别: 记录 I2C 失败关机原因并关机 */
-        param_set_shutdown_reason(SHUTDOWN_I2C_FAIL);
-        param_save();
+        param_log_shutdown(SHUTDOWN_I2C_FAIL);
         power_off();
 
         /* LATCH 已拉低, 等待系统断电 */
@@ -175,8 +190,8 @@ static void app_process_keys(ui_state_t *ui)
             /* SW3/SW4 长按关机 */
             if ((KEY_ID_SW3 == i) || (KEY_ID_SW4 == i))
             {
-                param_set_shutdown_reason(SHUTDOWN_MANUAL);
-                param_save();
+                param_log_shutdown(SHUTDOWN_MANUAL);
+                shutdown_print_raw();
                 power_off();
             }
         }
@@ -250,8 +265,8 @@ static void app_process_100ms(ui_state_t *ui)
     battery_update(ui->ldm_on, (T7_ON == ui->t7));
     ui_state_set_battery(ui, battery_get_level());
 
-    /* 保护关机: BUCK 失效优先级高于低电 */
-    if (battery_buck_need_shutdown())
+    /* 保护关机: BUCK 失效与低电平级, 各自独立判断关机 */
+/*    if (battery_buck_need_shutdown())
     {
         static bool buck_handled = false;
 
@@ -263,17 +278,17 @@ static void app_process_100ms(ui_state_t *ui)
         }
 
         power_off();
-    }
-    else if (battery_need_shutdown())
+    }*/
+    if (battery_need_shutdown())
     {
         static bool handled = false;
 
         if (!handled)
         {
             handled = true;
-            /* 记录低电关机原因并写回 Flash (仅触发一次) */
-            param_set_shutdown_reason(SHUTDOWN_LOW_BATT);
-            param_save();
+            /* 记录低电关机原因 + 写回 Flash + 打印 (仅触发一次) */
+            param_log_shutdown(SHUTDOWN_LOW_BATT);
+            shutdown_print_raw();
         }
 
         power_off();
