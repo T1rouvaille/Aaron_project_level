@@ -511,12 +511,12 @@
       <configSetting altId="p409.gpio_mode.gpio_mode_in" configurationId="p409.gpio_mode"/>
       <configSetting altId="p500.gpt5.gtioca" configurationId="p500"/>
       <configSetting altId="p500.gpio_mode.gpio_mode_peripheral" configurationId="p500.gpio_mode"/>
-      <configSetting altId="p913.input" configurationId="p913"/>
-      <configSetting altId="p913.gpio_mode.gpio_mode_in" configurationId="p913.gpio_mode"/>
-      <configSetting altId="p914.output.low" configurationId="p914"/>
-      <configSetting altId="p914.gpio_mode.gpio_mode_out.low" configurationId="p914.gpio_mode"/>
-      <configSetting altId="p915.output.low" configurationId="p915"/>
-      <configSetting altId="p915.gpio_mode.gpio_mode_out.low" configurationId="p915.gpio_mode"/>
+      <configSetting altId="p913.output.high" configurationId="p913"/>
+      <configSetting altId="p913.gpio_mode.gpio_mode_out.high" configurationId="p913.gpio_mode"/>
+      <configSetting altId="p914.output.high" configurationId="p914"/>
+      <configSetting altId="p914.gpio_mode.gpio_mode_out.high" configurationId="p914.gpio_mode"/>
+      <configSetting altId="p915.input" configurationId="p915"/>
+      <configSetting altId="p915.gpio_mode.gpio_mode_in" configurationId="p915.gpio_mode"/>
       <configSetting altId="sci1.mode.asynchronous.free" configurationId="sci1.mode"/>
       <configSetting altId="sci1.rxd.p212" configurationId="sci1.rxd"/>
       <configSetting altId="sci1.txd.p213" configurationId="sci1.txd"/>

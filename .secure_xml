@@ -61,9 +61,9 @@
       <configSetting altId="p407.input" configurationId="p407"/>
       <configSetting altId="p408.input" configurationId="p408"/>
       <configSetting altId="p409.input" configurationId="p409"/>
-      <configSetting altId="p913.input" configurationId="p913"/>
-      <configSetting altId="p914.output.low" configurationId="p914"/>
-      <configSetting altId="p915.output.low" configurationId="p915"/>
+      <configSetting altId="p913.output.high" configurationId="p913"/>
+      <configSetting altId="p914.output.high" configurationId="p914"/>
+      <configSetting altId="p915.input" configurationId="p915"/>
       <configSetting altId="sci1.rxd.p212" configurationId="sci1.rxd" isUsedByDriver="true"/>
       <configSetting altId="sci1.txd.p213" configurationId="sci1.txd" isUsedByDriver="true"/>
       <configSetting altId="spi0.mosi.p101" configurationId="spi0.mosi" isUsedByDriver="true"/>

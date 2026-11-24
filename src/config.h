@@ -23,10 +23,10 @@
 /* ----------------------------------------------------------------------
  *  电源时序引脚 (EN 7V -> EN 5V)
  *  上电时序: 先拉高 EN 7V, 延时 10ms, 再拉高 EN 5V
- *  (两引脚在 pin_data.c 中已初始化为输出低)
+ *  (两引脚在 pin_data.c 中已初始化为输出高)
  * ---------------------------------------------------------------------- */
-#define EN_7V_PIN            (BSP_IO_PORT_09_PIN_14)                                  /* P914 EN 7V */
-#define EN_5V_PIN            (BSP_IO_PORT_09_PIN_15)                                  /* P915 EN 5V */
+#define EN_7V_PIN            (BSP_IO_PORT_09_PIN_13)                                  /* P913 EN 7V */
+#define EN_5V_PIN            (BSP_IO_PORT_09_PIN_14)                                  /* P914 EN 5V */
 #define PWR_SEQ_DELAY_MS     (10U)                                                    /* EN 7V -> EN 5V 延时 */
 
 /* ----------------------------------------------------------------------
@@ -41,7 +41,7 @@
 /* ----------------------------------------------------------------------
  *  按键引脚 (SW1~SW4, 高有效: 按下接 VCC)
  * ---------------------------------------------------------------------- */
-#define KEY_SW1_PIN          (BSP_IO_PORT_09_PIN_13)                                  /* SW1: P913 */
+#define KEY_SW1_PIN          (BSP_IO_PORT_09_PIN_15)                                  /* SW1: P915 */
 #define KEY_SW2_PIN          (BSP_IO_PORT_04_PIN_07)                                  /* SW2: P407 */
 #define KEY_SW3_PIN          (BSP_IO_PORT_04_PIN_08)                                  /* SW3: P408 */
 #define KEY_SW4_PIN          (BSP_IO_PORT_04_PIN_09)                                  /* SW4: P409 */
@@ -54,11 +54,11 @@
 #define KEY_LONG_PRESS_CNT   (300U)                                                   /* 长按阈值: 300 次 (3000ms) */
 
 /* ----------------------------------------------------------------------
- *  LCD 引脚 (A0 = P104 数据/命令, RST = P110 复位, CS = P111 片选)
+ *  LCD 引脚 (A0 = P104 数据/命令, RST = P111 复位, CS = P110 片选)
  * ---------------------------------------------------------------------- */
 #define LCD_A0_PIN           (BSP_IO_PORT_01_PIN_04)
-#define LCD_RST_PIN          (BSP_IO_PORT_01_PIN_10)
-#define LCD_CS_PIN           (BSP_IO_PORT_01_PIN_11)
+#define LCD_RST_PIN          (BSP_IO_PORT_01_PIN_11)
+#define LCD_CS_PIN           (BSP_IO_PORT_01_PIN_10)
 
 /* LCD 默认对比度 (EV 0~31, 越大越亮; 过高出现鬼影) */
 #define LCD_DEFAULT_EV        (0x0FU)
@@ -114,10 +114,10 @@
 
 /* ----------------------------------------------------------------------
  *  ADC 通道映射 (RA2E1A73)
- *    P014 -> AN009 (ADC_CHANNEL_9)  : buck 7V 电压
+ *    P011 -> AN006 (ADC_CHANNEL_6)  : buck 7V 电压
  *    P015 -> AN010 (ADC_CHANNEL_10) : 电池电压
  * ---------------------------------------------------------------------- */
-#define ADC_CH_BUCK_7V        (ADC_CHANNEL_9)
+#define ADC_CH_BUCK_7V        (ADC_CHANNEL_6)
 #define ADC_CH_BATTERY        (ADC_CHANNEL_10)
 
 /* ----------------------------------------------------------------------

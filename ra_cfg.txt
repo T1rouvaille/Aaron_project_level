@@ -124,9 +124,9 @@ FSP Configuration
       P408 11 GPIO - - None "Input mode" - None "CTSU0: TS04; GPT_OPS0: GTOWLO; ICU0: IRQ07; IIC0: SCL0; SCI1: CTS1" - IO - - 
       P409 10 GPIO - - None "Input mode" - None "CTSU0: TS05; GPT_OPS0: GTOWUP; ICU0: IRQ06" - IO - - 
       P500 37 GPT5_GTIOC5A - - - "Peripheral mode" CMOS None "GPT_OPS0: GTIU; GPT5: GTIOC5A" - IO - - 
-      P913 15 GPIO - - - "Input mode" - None "AGT1: AGTIO1; GPT_POEG0: GTETRGA" - IO - - 
-      P914 14 GPIO - - - "Output mode (Initial Low)" CMOS - "AGT1: AGTOA1; GPT_POEG1: GTETRGB" - IO - - 
-      P915 13 GPIO - - - "Output mode (Initial Low)" CMOS - - - IO - - 
+      P913 15 GPIO - - - "Output mode (Initial High)" CMOS - "AGT1: AGTIO1; GPT_POEG0: GTETRGA" - IO - - 
+      P914 14 GPIO - - - "Output mode (Initial High)" CMOS - "AGT1: AGTOA1; GPT_POEG1: GTETRGB" - IO - - 
+      P915 13 GPIO - - - "Input mode" - None - - IO - - 
       RES# 19 SYSTEM0_RES - - - - - - - - IO "Read only" - 
       VCC 9 SYSTEM0_VCC - - - - - - - - IO "Read only" - 
       VCC 30 SYSTEM0_VCC - - - - - - - - IO "Read only" - 
@@ -173,9 +173,9 @@ FSP Configuration
       P408 11 - - - None Disabled - None "CTSU0: TS04; GPT_OPS0: GTOWLO; ICU0: IRQ07; IIC0: SCL0; SCI1: CTS1" - IO - - 
       P409 10 - - - None Disabled - None "CTSU0: TS05; GPT_OPS0: GTOWUP; ICU0: IRQ06" - IO - - 
       P500 37 - - - - Disabled CMOS None "GPT_OPS0: GTIU; GPT5: GTIOC5A" - IO - - 
-      P913 15 - - - - Disabled - None "AGT1: AGTIO1; GPT_POEG0: GTETRGA" - IO - - 
+      P913 15 - - - - Disabled CMOS - "AGT1: AGTIO1; GPT_POEG0: GTETRGA" - IO - - 
       P914 14 - - - - Disabled CMOS - "AGT1: AGTOA1; GPT_POEG1: GTETRGB" - IO - - 
-      P915 13 - - - - Disabled CMOS - - - IO - - 
+      P915 13 - - - - Disabled - None - - IO - - 
       RES# 19 SYSTEM0_RES - - - - - - - - IO "Read only" - 
       VCC 9 SYSTEM0_VCC - - - - - - - - IO "Read only" - 
       VCC 30 SYSTEM0_VCC - - - - - - - - IO "Read only" - 

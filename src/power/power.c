@@ -26,7 +26,7 @@ void power_seq_init(void)
 {
     /* 先拉高 EN 7V(P914), 延时 10ms, 再拉高 EN 5V(P915) */
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_7V_PIN, BSP_IO_LEVEL_HIGH);
-    R_BSP_SoftwareDelay(PWR_SEQ_DELAY_MS, BSP_DELAY_UNITS_MILLISECONDS);
+    //R_BSP_SoftwareDelay(PWR_SEQ_DELAY_MS, BSP_DELAY_UNITS_MILLISECONDS);
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_5V_PIN, BSP_IO_LEVEL_HIGH);
 
     /* EN_5V 拉高后直接拉低 P002 到空闲态 (不再发送上电握手脉冲) */
