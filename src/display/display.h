@@ -22,23 +22,23 @@
 typedef enum
 {
     FORM_IDLE = 0,   /* 开机初始态: T1/T2/T9~T12 常亮, 无数字 */
-    FORM_A,          /* T1+T4+T5+T8+T13 + 数字 */
-    FORM_B,          /* T3+T5+T8+T13   + 数字 */
-    FORM_C,          /* T6+T8+T13      + 数字 */
+    FORM_A,          /* T1+T4+T5+T7+T13 + 数字 */
+    FORM_B,          /* T3+T5+T7+T13   + 数字 */
+    FORM_C,          /* T6+T7+T13      + 数字 */
     FORM_NUM,        /* 形式总数 (用于循环计数) */
 } form_t;
 
 /* 数字换算态: SW1 短按循环, 7 态单位换算 (无关闭态)。 */
 typedef enum
 {
-    DIGIT_FT_DEC = 0,   /* 十进制英尺 */
-    DIGIT_FT_FRAC,      /* 英尺 + 1/8 分数 */
-    DIGIT_FT_IN,        /* 英尺 + 英寸 (双单位) */
-    DIGIT_IN_DEC,       /* 十进制英寸 */
-    DIGIT_IN_FRAC,      /* 英寸 + 1/2 分数 */
-    DIGIT_M,            /* 米 */
-    DIGIT_CM,           /* 厘米 (4 位整数 + 1 位小数) */
-    DIGIT_NUM,          /* 数字态总数 (7) */
+    DIGIT_FT_IN_FRAC = 0,   /* 英尺 + 英寸 (1/8 分数) */
+    DIGIT_FT_IN_DEC,        /* 英尺 + 英寸 (十进制小数) */
+    DIGIT_FT_DEC,           /* 十进制英尺 */
+    DIGIT_IN_FRAC,          /* 英寸 + 1/16 分数 */
+    DIGIT_IN_DEC,           /* 十进制英寸 */
+    DIGIT_M,                /* 米 */
+    DIGIT_MM,               /* 毫米 (整数) */
+    DIGIT_NUM,              /* 数字态总数 (7) */
 } digital_t;
 
 /* T7 十字加号显示状态: SW4 短按往复切换。 */

@@ -24,7 +24,7 @@ void power_latch_init(void)
 
 void power_seq_init(void)
 {
-    /* 先拉高 EN 7V(P914), 延时 10ms, 再拉高 EN 5V(P915) */
+    /* 先拉高 EN 7V(P913), 再拉高 EN 5V(P914) (原 10ms 延时已禁用) */
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_7V_PIN, BSP_IO_LEVEL_HIGH);
     //R_BSP_SoftwareDelay(PWR_SEQ_DELAY_MS, BSP_DELAY_UNITS_MILLISECONDS);
     R_IOPORT_PinWrite(&g_ioport_ctrl, EN_5V_PIN, BSP_IO_LEVEL_HIGH);

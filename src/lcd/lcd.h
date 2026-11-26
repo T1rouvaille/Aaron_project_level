@@ -19,7 +19,7 @@
 
 /* LCD 几何参数 */
 #define LCD_COM_NUM     (2U)    /* COM 数 (1/2 duty, 规格书) */
-#define LCD_SEG_NUM     (50U)   /* 有效 SEG 数 (面板实际连接段 SEG[0]~SEG[49]) */
+#define LCD_SEG_NUM     (96U)   /* 有效 SEG 数 (AiP31033E 全列 SEG[0]~SEG[95], 1/2 duty = 192 段) */
 
 /* 段点亮值: 1/2 duty, 每字节 bit0=COM0段, bit1=COM1段 */
 #define LCD_SEG_OFF     (0x00U) /* 段灭 */

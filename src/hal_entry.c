@@ -14,6 +14,7 @@
 #include "param/param.h"
 #include "command/command.h"
 #include <stdio.h>
+#include <string.h>
 
 FSP_CPP_HEADER
 void R_BSP_WarmStart(bsp_warm_start_event_t event);

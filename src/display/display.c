@@ -19,18 +19,28 @@ static bool    s_blink_phase = false;
 static uint8_t s_blink_cnt   = 0U;
 
 /* ======================================================================
- *  单位图标索引 (lcd_show_icon 0-based)
+ *  单位图标索引 (lcd_show_icon 0-based, 新面板 T1~T41 语义)
  * ====================================================================== */
-#define LCD_ICON_FWD_M    (20U)   /* T21 正向 M */
-#define LCD_ICON_FWD_FT   (19U)   /* T20 正向 英尺 */
-#define LCD_ICON_FWD_IN   (28U)   /* T29 正向 英寸 */
-#define LCD_ICON_FWD_CM   (29U)   /* T30 正向 厘米 */
-#define LCD_ICON_REV_M    (16U)   /* T17 反向 M */
-#define LCD_ICON_REV_FT   (17U)   /* T18 反向 英尺 */
-#define LCD_ICON_REV_IN   (14U)   /* T15 反向 英寸 */
-#define LCD_ICON_REV_CM   (13U)   /* T14 反向 厘米 */
-#define LCD_ICON_SLASH    (23U)   /* T24 斜杠 */
-#define LCD_ICON_T7       (6U)    /* T7  十字加号 */
+#define LCD_ICON_FWD_FT   (37U)   /* T38 正向 英尺 */
+#define LCD_ICON_FWD_IN   (38U)   /* T39 正向 英寸 */
+#define LCD_ICON_FWD_M    (39U)   /* T40 正向 M */
+#define LCD_ICON_FWD_MM   (40U)   /* T41 正向 MM */
+#define LCD_ICON_REV_FT   (20U)   /* T21 反向 英尺 */
+#define LCD_ICON_REV_IN   (19U)   /* T20 反向 英寸 */
+#define LCD_ICON_REV_M    (18U)   /* T19 反向 M */
+#define LCD_ICON_REV_MM   (17U)   /* T18 反向 MM */
+#define LCD_ICON_SLASH_FWD (24U)   /* T25 正向(下排)分数斜杠 */
+#define LCD_ICON_SLASH_REV (33U)   /* T34 反向(上排)分数斜杠 */
+#define LCD_ICON_T7       (7U)    /* T8  十字加号 (t7 激光十字线指示; 三档基准为 T7=idx6) */
+#define LCD_ICON_QUOTE_FWD   (36U)   /* T37 正向 单引号 (英尺标记) */
+#define LCD_ICON_QUOTE_REV   (21U)   /* T22 反向 单引号 */
+#define LCD_ICON_DQUOTE_FWD  (30U)   /* T31 正向 双引号 (英寸标记) */
+#define LCD_ICON_DQUOTE_REV  (16U)   /* T17 反向 双引号 */
+#define LCD_ICON_DOT_BOT_FWD (22U)   /* T23 正向下排数字第一个小数点 */
+#define LCD_ICON_DOT_BOT_REV (23U)   /* T24 正向下排数字反过来的第一个小数点 */
+#define LCD_ICON_DOT_TOP_REV (35U)   /* T36 反向显示时上排小数点 (1#/4# 反向小数) */
+#define LCD_ICON_SEP_FWD     (28U)   /* T29 正向 引号 (mm>9999 米/毫米分隔符) */
+#define LCD_ICON_SEP_REV     (13U)   /* T14 反向 引号 (mm>9999 米/毫米分隔符) */
 
 /* 单位枚举: 用于 lcd_show_unit 选择单位图标 */
 typedef enum
@@ -38,7 +48,7 @@ typedef enum
     UNIT_FT = 0,   /* 英尺 */
     UNIT_IN,       /* 英寸 */
     UNIT_M,        /* 米   */
-    UNIT_CM,       /* 厘米 */
+    UNIT_MM,       /* 毫米 */
 } unit_t;
 
 /* ----------------------------------------------------------------------
@@ -53,37 +63,131 @@ static uint32_t mm_to_ft_milli(uint32_t value_mm)
 
 /* ----------------------------------------------------------------------
  *  端部组显示整数部分 (右对齐, 高位靠左):
- *    正向: 顶部组 P1/P2/P3 正立, 右对齐到 P3 (16 -> P2=1, P3=6)
- *    反向: 顶部组 P10/P9/P8 倒置, 右对齐到 P8 (16 -> P9=1, P8=6)
+ *    正向: 上排 1/2/3/4 正立, 右对齐到 pos4 (16 -> pos3=1, pos4=6)
+ *    反向: 下排 9/10/11/12 倒置, 右对齐到 pos9 (16 -> pos10=1, pos9=6)
  * ---------------------------------------------------------------------- */
 static void lcd_show_int_group(uint8_t *frame, const char *num,
                                uint8_t int_len, bool forward)
 {
     uint8_t k;
 
-    /* 最多显示 3 位整数, 从最低位 (最右) 往左填充 */
-    for (k = 0U; (k < int_len) && (k < 3U); k++)
+    /* 最多显示 4 位整数, 从最低位 (最右) 往左填充 */
+    for (k = 0U; (k < int_len) && (k < 4U); k++)
     {
         uint8_t digit = (uint8_t)(num[int_len - 1U - k] - '0');
 
         if (forward)
         {
-            lcd_show_digit((uint8_t)(3U - k), digit, frame);   /* P3 <- 最低位 */
+            lcd_show_digit((uint8_t)(4U - k), digit, frame);     /* pos4 <- 最低位 */
         }
         else
         {
-            lcd_show_digit_rot((uint8_t)(8U + k), digit, frame); /* P8 <- 最低位 */
+            lcd_show_digit_rot((uint8_t)(9U + k), digit, frame); /* pos9 <- 最低位 */
         }
     }
 }
 
 /* ----------------------------------------------------------------------
- *  中间组显示小数部分 (小数点 + 小数数字, 最多 4 位):
- *    数字从小数点右侧第一位开始连续排布, 小数点图标/起始位随位数变化:
- *      1 位: 正向 T25+P6,           反向 T23+P5
- *      2 位: 正向 T25+P6/P7,        反向 T23+P5/P4
- *      3 位: 正向 T22+P5/P6/P7,     反向 T26+P6/P5/P4
- *      4 位: 正向 T16+P4/P5/P6/P7,  反向 T27+P7/P6/P5/P4
+ *  MM 态整数毫米显示: 端部排 + 中排 8 位窗口, 右对齐。
+ *    正向: 上排 pos1~4 + 中排 pos5~8, 个位 pos8。
+ *    反向: 下排 pos9~12 + 中排 pos5~8, 个位 pos5。
+ *    超过 8 位时仅取最低 8 位 (量程内应不超 99999999mm)。
+ * ---------------------------------------------------------------------- */
+static void lcd_show_mm_group(uint8_t *frame, const char *num,
+                              uint8_t len, bool forward)
+{
+    static const uint8_t fwd_pos[8] = {8U, 7U, 6U, 5U, 4U, 3U, 2U, 1U};   /* index0=个位 */
+    static const uint8_t rev_pos[8] = {5U, 6U, 7U, 8U, 9U, 10U, 11U, 12U}; /* index0=个位 */
+    uint8_t k;
+
+    for (k = 0U; (k < len) && (k < 8U); k++)
+    {
+        uint8_t digit = (uint8_t)(num[len - 1U - k] - '0');
+
+        if (forward)
+        {
+            lcd_show_digit(fwd_pos[k], digit, frame);
+        }
+        else
+        {
+            lcd_show_digit_rot(rev_pos[k], digit, frame);
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------
+ *  中排显示整数部分 (右对齐, 高位靠左):
+ *    正向: 中排 5/6/7/8 正立, 右对齐到 pos8 (131 -> pos6/7/8)
+ *    反向: 中排 5/6/7/8 倒置, 右对齐到 pos5 (131 -> pos5/6/7)
+ * ---------------------------------------------------------------------- */
+static void lcd_show_mid_int(uint8_t *frame, uint32_t val, bool forward)
+{
+    char    num[8];
+    uint8_t len, k;
+
+    sprintf(num, "%lu", (unsigned long)val);
+    len = (uint8_t)strlen(num);
+
+    for (k = 0U; (k < len) && (k < 4U); k++)
+    {
+        uint8_t digit = (uint8_t)(num[len - 1U - k] - '0');
+
+        if (forward)
+        {
+            lcd_show_digit((uint8_t)(8U - k), digit, frame);   /* 个位 pos8 */
+        }
+        else
+        {
+            lcd_show_digit_rot((uint8_t)(5U + k), digit, frame); /* 个位 pos5 */
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------
+ *  下排显示小数数字 (最多 3 位):
+ *    正向: 下排 pos10/11/12, 小数点 T23, 数字紧跟小数点左起。
+ *    反向: 上排 1/2/3/4 倒置, 小数点 T36, 数字右对齐到 pos1。
+ * ---------------------------------------------------------------------- */
+static void lcd_show_bot_decimal(uint8_t *frame, uint32_t frac_val,
+                                 uint8_t frac_len, bool forward)
+{
+    char    num[4];
+    uint8_t k;
+
+    if (frac_len > 3U)
+    {
+        frac_len = 3U;
+    }
+    sprintf(num, "%0*lu", (int)frac_len, (unsigned long)frac_val);
+
+    if (forward)
+    {
+        /* 正向: 显示小数点 T23 + 小数数字 (1#/4# 正向 .125/.136) */
+        lcd_show_icon(LCD_ICON_DOT_BOT_FWD, frame);   /* T23 正向下排小数点 */
+        for (k = 0U; k < frac_len; k++)
+        {
+            lcd_show_digit((uint8_t)(10U + k), (uint8_t)(num[k] - '0'), frame);
+        }
+    }
+    else
+    {
+        /* 反向: 显示小数点 T36 + 小数数字 (1#/4# 反向 .125/.136) */
+        lcd_show_icon(LCD_ICON_DOT_TOP_REV, frame);   /* T36 反向上排小数点 */
+        for (k = 0U; k < frac_len; k++)
+        {
+            lcd_show_digit_rot((uint8_t)(3U - k), (uint8_t)(num[k] - '0'), frame);
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------
+ *  中排显示小数部分 (小数点 + 小数数字, 最多 4 位):
+ *    中排 5/6/7/8 正反共享; 小数点固定 T27(正向)/T28(反向)。
+ *    数字从小数点右侧第一位开始连续排布:
+ *      1 位: 正向 pos7,             反向 pos6
+ *      2 位: 正向 pos7/8,           反向 pos6/5
+ *      3 位: 正向 pos6/7/8,         反向 pos7/6/5
+ *      4 位: 正向 pos5/6/7/8,       反向 pos8/7/6/5
  * ---------------------------------------------------------------------- */
 static void lcd_show_frac_group(uint8_t *frame, const char *num,
                                 uint8_t int_len, uint8_t len, bool forward)
@@ -103,10 +207,10 @@ static void lcd_show_frac_group(uint8_t *frame, const char *num,
     }
 
     /* 查表索引: [0]=1位, [1]=2位, [2]=3位, [3]=4位 */
-    static const uint8_t fwd_start[4] = {6U, 6U, 5U, 4U};
-    static const uint8_t fwd_dot[4]   = {24U, 24U, 21U, 15U};  /* T25,T25,T22,T16 */
-    static const uint8_t rev_start[4] = {5U, 5U, 6U, 7U};
-    static const uint8_t rev_dot[4]   = {22U, 22U, 25U, 26U};  /* T23,T23,T26,T27 */
+    static const uint8_t fwd_start[4] = {7U, 7U, 6U, 5U};
+    static const uint8_t fwd_dot[4]   = {26U, 26U, 26U, 26U};  /* T27 */
+    static const uint8_t rev_start[4] = {6U, 6U, 7U, 8U};
+    static const uint8_t rev_dot[4]   = {27U, 27U, 27U, 27U};  /* T28 */
 
     uint8_t idx = (uint8_t)(frac_len - 1U);
 
@@ -142,7 +246,7 @@ static void lcd_show_unit(uint8_t *frame, unit_t unit, bool forward)
             case UNIT_FT: lcd_show_icon(LCD_ICON_FWD_FT, frame); break;
             case UNIT_IN: lcd_show_icon(LCD_ICON_FWD_IN, frame); break;
             case UNIT_M:  lcd_show_icon(LCD_ICON_FWD_M,  frame); break;
-            case UNIT_CM: lcd_show_icon(LCD_ICON_FWD_CM, frame); break;
+            case UNIT_MM: lcd_show_icon(LCD_ICON_FWD_MM, frame); break;
             default: break;
         }
     }
@@ -153,15 +257,29 @@ static void lcd_show_unit(uint8_t *frame, unit_t unit, bool forward)
             case UNIT_FT: lcd_show_icon(LCD_ICON_REV_FT, frame); break;
             case UNIT_IN: lcd_show_icon(LCD_ICON_REV_IN, frame); break;
             case UNIT_M:  lcd_show_icon(LCD_ICON_REV_M,  frame); break;
-            case UNIT_CM: lcd_show_icon(LCD_ICON_REV_CM, frame); break;
+            case UNIT_MM: lcd_show_icon(LCD_ICON_REV_MM, frame); break;
             default: break;
         }
     }
 }
 
 /* ----------------------------------------------------------------------
+ *  英尺/英寸单位标记 (单引号/双引号):
+ *    正向: T37 单引号 / T31 双引号; 反向: T22 单引号 / T17 双引号。
+ * ---------------------------------------------------------------------- */
+static void lcd_show_ft_mark(uint8_t *frame, bool forward)
+{
+    lcd_show_icon(forward ? LCD_ICON_QUOTE_FWD : LCD_ICON_QUOTE_REV, frame);
+}
 
-  ---------------------------------------------------------------------- */
+static void lcd_show_in_mark(uint8_t *frame, bool forward)
+{
+    lcd_show_icon(forward ? LCD_ICON_DQUOTE_FWD : LCD_ICON_DQUOTE_REV, frame);
+}
+
+/* ----------------------------------------------------------------------
+ *  约分: num/den 除以最大公约数。
+ * ---------------------------------------------------------------------- */
 static void frac_reduce(uint32_t num, uint32_t den, uint8_t *p_num, uint8_t *p_den)
 {
     uint32_t a = num, b = den, t;
@@ -179,9 +297,10 @@ static void frac_reduce(uint32_t num, uint32_t den, uint8_t *p_num, uint8_t *p_d
 
 /* ----------------------------------------------------------------------
  *  分数显示 num/den (支持两位分子/分母, 约分后调用, 如 15/16、7/8):
- *    斜杠 T24 固定于 P5/P6 之间; 分子右对齐紧贴斜杠, 分母左对齐紧贴斜杠:
- *    正向: 分子十位 P4/个位 P5; 分母两位十位 P6/个位 P7, 一位时个位 P6
- *    反向: 分子十位 P7/个位 P6; 分母两位十位 P5/个位 P4, 一位时个位 P5
+ *    正向: 分数在下排 pos9~12, 斜杠 T25; 分子右对齐紧贴斜杠, 分母左对齐紧贴斜杠:
+ *      分子十位 pos9/个位 pos10; 分母两位十位 pos11/个位 pos12, 一位时个位 pos11
+ *    反向: 分数在上排 pos1~4 (倒置), 斜杠 T34; 倒置后分子在右、分母在左:
+ *      分子十位 pos4/个位 pos3; 分母两位十位 pos2/个位 pos1, 一位时个位 pos2
  * ---------------------------------------------------------------------- */
 static void lcd_show_fraction2(uint8_t *frame, uint8_t num, uint8_t den, bool forward)
 {
@@ -190,64 +309,34 @@ static void lcd_show_fraction2(uint8_t *frame, uint8_t num, uint8_t den, bool fo
     uint8_t d_tens = (uint8_t)(den / 10U);   /* 分母十位 (0~1) */
     uint8_t d_ones = (uint8_t)(den % 10U);   /* 分母个位 */
 
-    lcd_show_icon(LCD_ICON_SLASH, frame);   /* 斜杠 T24 */
-
     if (forward)
     {
-        if (0U != n_tens) { lcd_show_digit(4U, n_tens, frame); }  /* 分子十位 P4 */
-        lcd_show_digit(5U, n_ones, frame);                        /* 分子个位 P5 (紧贴斜杠) */
+        lcd_show_icon(LCD_ICON_SLASH_FWD, frame);   /* T25 下排斜杠 */
+        if (0U != n_tens) { lcd_show_digit(9U, n_tens, frame); }  /* 分子十位 pos9 */
+        lcd_show_digit(10U, n_ones, frame);                        /* 分子个位 pos10 (紧贴斜杠) */
         if (0U != d_tens)                                        /* 分母两位 */
         {
-            lcd_show_digit(6U, d_tens, frame);                    /* 分母十位 P6 (紧贴斜杠) */
-            lcd_show_digit(7U, d_ones, frame);                    /* 分母个位 P7 */
+            lcd_show_digit(11U, d_tens, frame);                    /* 分母十位 pos11 (紧贴斜杠) */
+            lcd_show_digit(12U, d_ones, frame);                    /* 分母个位 pos12 */
         }
         else                                                      /* 分母一位, 紧贴斜杠 */
         {
-            lcd_show_digit(6U, d_ones, frame);                    /* 分母个位 P6 */
+            lcd_show_digit(11U, d_ones, frame);                    /* 分母个位 pos11 */
         }
     }
     else
     {
-        if (0U != n_tens) { lcd_show_digit_rot(7U, n_tens, frame); }  /* 分子十位 P7 */
-        lcd_show_digit_rot(6U, n_ones, frame);                        /* 分子个位 P6 (紧贴斜杠) */
+        lcd_show_icon(LCD_ICON_SLASH_REV, frame);   /* T34 上排斜杠 */
+        if (0U != n_tens) { lcd_show_digit_rot(4U, n_tens, frame); }  /* 分子十位 pos4 */
+        lcd_show_digit_rot(3U, n_ones, frame);                        /* 分子个位 pos3 (紧贴斜杠) */
         if (0U != d_tens)                                             /* 分母两位 */
         {
-            lcd_show_digit_rot(5U, d_tens, frame);                    /* 分母十位 P5 (紧贴斜杠) */
-            lcd_show_digit_rot(4U, d_ones, frame);                    /* 分母个位 P4 */
+            lcd_show_digit_rot(2U, d_tens, frame);                    /* 分母十位 pos2 (紧贴斜杠) */
+            lcd_show_digit_rot(1U, d_ones, frame);                    /* 分母个位 pos1 */
         }
         else                                                          /* 分母一位, 紧贴斜杠 */
         {
-            lcd_show_digit_rot(5U, d_ones, frame);                    /* 分母个位 P5 */
-        }
-    }
-}
-
-/* ----------------------------------------------------------------------
- *  副读数「整数 + 分数」显示 (如 3 1/8 英寸, 约分后调用, 各 1 位):
- *    正向: 整数 P4, 分子 P5, 分母 P6, 斜杠 T24 居中
- *    反向: 整数 P7, 分子 P6, 分母 P5 (倒置), 斜杠 T24
- *  den=0 时仅显示整数 (无分数)。
- * ---------------------------------------------------------------------- */
-static void lcd_show_sub_fraction(uint8_t *frame, uint8_t whole, uint8_t num, uint8_t den, bool forward)
-{
-    if (forward)
-    {
-        lcd_show_digit(4U, whole, frame);   /* 整数 P4 */
-        if (0U != den)
-        {
-            lcd_show_icon(LCD_ICON_SLASH, frame);
-            lcd_show_digit(5U, num, frame);   /* 分子 P5 */
-            lcd_show_digit(6U, den, frame);   /* 分母 P6 */
-        }
-    }
-    else
-    {
-        lcd_show_digit_rot(7U, whole, frame); /* 整数 P7 */
-        if (0U != den)
-        {
-            lcd_show_icon(LCD_ICON_SLASH, frame);
-            lcd_show_digit_rot(6U, num, frame);   /* 分子 P6 */
-            lcd_show_digit_rot(5U, den, frame);   /* 分母 P5 */
+            lcd_show_digit_rot(2U, d_ones, frame);                    /* 分母个位 pos2 */
         }
     }
 }
@@ -281,64 +370,78 @@ static void lcd_show_decimal(uint8_t *frame, uint32_t int_val,
 }
 
 /* ----------------------------------------------------------------------
- *  最多 4 位整数 + 1 位小数 (如 1680.2 cm / 134.5 cm), 整数去掉前导 0。
- *    正向: 整数在中间组 P4 P5 P6 P7, 小数点 T28, 小数在 P9
- *    反向: 整数在中间组 P7 P6 P5 P4 (倒置), 小数点 T19, 小数在 P2 (倒置)
+ *  英尺+英寸 公共部分: 计算并渲染上排(英尺整数 + FT + IN)与中排(英寸整数 + 双引号)。
+ *  返回 1/8 英寸分子 n8 (0~7, 0=无零头), 由调用方据此渲染下排分数或小数。
  * ---------------------------------------------------------------------- */
-static void lcd_show_4int_1frac(uint8_t *frame, uint32_t int_val,
-                                uint32_t frac_val, bool forward)
+static uint32_t lcd_show_ft_in_group(uint8_t *frame, uint32_t base_ft, bool forward)
 {
-    uint8_t  k;
-    uint8_t  digits = 0U;
-    uint32_t tmp    = int_val;
+    uint32_t ft_int   = base_ft / 1000UL;
+    uint32_t in_milli = (base_ft % 1000UL) * 12UL;
+    uint32_t in_int   = in_milli / 1000UL;
+    uint32_t n8       = ((in_milli % 1000UL) * 8UL + 500UL) / 1000UL;
 
-    /* 计算整数有效位数 (最少 1 位, 最多 4 位) */
-    do
+    if (n8 >= 8UL)                    /* 分数进位到整数英寸 */
     {
-        digits++;
-        tmp /= 10U;
-    } while ((tmp > 0U) && (digits < 4U));
+        in_int += 1UL;
+        n8      = 0UL;
+    }
+    if (in_int >= 12UL)               /* 整数英寸进位到英尺 */
+    {
+        ft_int += 1UL;
+        in_int  = 0UL;
+    }
 
-    if (forward)
-    {
-        /* P7=个位 起左移, 仅显示有效位 (去掉前导 0) */
-        for (k = 0U; k < digits; k++)
-        {
-            lcd_show_digit((uint8_t)(7U - k), (uint8_t)(int_val % 10U), frame);
-            int_val /= 10U;
-        }
-        lcd_show_icon(27U, frame);                          /* T28 */
-        lcd_show_digit(9U, (uint8_t)(frac_val % 10U), frame);
-    }
-    else
-    {
-        /* 镜像: P4=个位 起右移 */
-        for (k = 0U; k < digits; k++)
-        {
-            lcd_show_digit_rot((uint8_t)(4U + k), (uint8_t)(int_val % 10U), frame);
-            int_val /= 10U;
-        }
-        lcd_show_icon(18U, frame);                          /* T19 */
-        lcd_show_digit_rot(2U, (uint8_t)(frac_val % 10U), frame);
-    }
+    /* 上排: 英尺整数 + 单引号 + FT 单位 + IN 单位 (双单位) */
+    lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
+    lcd_show_ft_mark(frame, forward);   /* 单引号 T37 / T22 */
+    lcd_show_unit(frame, UNIT_FT, forward);
+    lcd_show_unit(frame, UNIT_IN, forward);
+
+    /* 中排: 英寸整数 + 双引号 */
+    lcd_show_mid_int(frame, in_int, forward);
+    lcd_show_in_mark(frame, forward);
+
+    return n8;
 }
 
 /* ----------------------------------------------------------------------
  *  7 态换算显示: 根据 base_ft (0.001 ft) 动态换算并显示对应状态。
- *    0: 十进制英尺 (有效小数位)
- *    1: 英尺 + 分数 (1/16, 约分, 零头隐藏)
- *    2: 英尺 + 英寸 (整数英尺 + 1/8 分数英寸副读数, 零头隐藏)
- *    3: 十进制英寸
- *    4: 英寸 + 分数 (1/16, 约分, 零头隐藏)
+ *    0: 英尺 + 英寸 (1/8 分数)   上排 英尺整数+FT+IN, 中排 英寸整数+双引号, 下排 分数
+ *    1: 英尺 + 英寸 (十进制小数) 上排 英尺整数+FT+IN, 中排 英寸整数+双引号, 下排 小数
+ *    2: 十进制英尺               上排 整数+单引号+FT, 中排 小数
+ *    3: 英寸 + 分数 (1/16, 约分) 上排 仅 IN, 中排 整数+双引号, 下排 分数
+ *    4: 十进制英寸               上排 仅 IN, 中排 整数+双引号, 下排 小数
  *    5: 米 (有效小数位)
- *    6: 厘米 (4 位整数 + 1 位小数)
+ *    6: 毫米 (整数)
  * ---------------------------------------------------------------------- */
 static void lcd_convert_show(uint8_t *frame, digital_t state,
                              uint32_t base_ft, bool forward)
 {
     switch (state)
     {
-        case DIGIT_FT_DEC:   /* 十进制英尺 */
+        case DIGIT_FT_IN_FRAC:   /* 0# 英尺 + 英寸 (1/8 分数) */
+        {
+            uint32_t n8 = lcd_show_ft_in_group(frame, base_ft, forward);
+            if (0U != n8)
+            {
+                uint8_t num, den;
+                frac_reduce(n8, 8UL, &num, &den);
+                lcd_show_fraction2(frame, num, den, forward);
+            }
+            break;
+        }
+
+        case DIGIT_FT_IN_DEC:   /* 1# 英尺 + 英寸 (十进制小数) */
+        {
+            uint32_t n8 = lcd_show_ft_in_group(frame, base_ft, forward);
+            if (0U != n8)
+            {
+                lcd_show_bot_decimal(frame, n8 * 125UL, 3U, forward);
+            }
+            break;
+        }
+
+        case DIGIT_FT_DEC:   /* 2# 十进制英尺: 上排整数 + 单引号 + FT, 中排小数 */
         {
             uint32_t ft_int   = base_ft / 1000UL;
             uint32_t frac     = base_ft % 1000UL;
@@ -349,71 +452,36 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
                 frac_len--;
             }
             lcd_show_decimal(frame, ft_int, frac, frac_len, forward);
-            if (0U == frac_len)
-            {
-                if (forward) { lcd_show_icon(21U, frame); }  /* T22 */
-                else         { lcd_show_icon(25U, frame); }  /* T26 */
-            }
+            lcd_show_ft_mark(frame, forward);   /* 单引号 T37 / T22 */
             lcd_show_unit(frame, UNIT_FT, forward);
             break;
         }
 
-        case DIGIT_FT_FRAC:   /* 英尺 + 分数 (1/16, 约分, 零头隐藏) */
+        case DIGIT_IN_FRAC:   /* 3# 英寸 + 分数 (1/16, 约分, 零头隐藏) */
         {
-            uint32_t ft_int = base_ft / 1000UL;
-            uint32_t n16    = ((base_ft % 1000UL) * 16UL + 500UL) / 1000UL;
-            if (n16 >= 16UL)                 /* 四舍五入进位到整数英尺 */
+            uint32_t total_in = base_ft * 12UL;
+            uint32_t in_int   = total_in / 1000UL;
+            uint32_t n16      = ((total_in % 1000UL) * 16UL + 500UL) / 1000UL;
+            if (n16 >= 16UL)                 /* 四舍五入进位到整数英寸 */
             {
-                ft_int += 1UL;
+                in_int += 1UL;
                 n16     = 0UL;
             }
-            lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
+
+            lcd_show_unit(frame, UNIT_IN, forward);   /* 上排仅 IN 单位 */
+            lcd_show_mid_int(frame, in_int, forward);  /* 中排整数 */
+            lcd_show_in_mark(frame, forward);          /* 双引号 T31 / T17 */
+
             if (0U != n16)
             {
                 uint8_t num, den;
                 frac_reduce(n16, 16UL, &num, &den);
-                lcd_show_fraction2(frame, num, den, forward);
-            }
-            lcd_show_unit(frame, UNIT_FT, forward);
-            break;
-        }
-
-        case DIGIT_FT_IN:   /* 英尺 + 英寸 (整数英尺 + 1/8 分数英寸, 副读数) */
-        {
-            uint32_t ft_int   = base_ft / 1000UL;
-            uint32_t in_milli = (base_ft % 1000UL) * 12UL;
-            uint32_t in_int   = in_milli / 1000UL;
-            uint32_t n8       = ((in_milli % 1000UL) * 8UL + 500UL) / 1000UL;
-            if (n8 >= 8UL)                    /* 分数进位到整数英寸 */
-            {
-                in_int += 1UL;
-                n8      = 0UL;
-            }
-            if (in_int >= 12UL)               /* 整数英寸进位到英尺 */
-            {
-                ft_int += 1UL;
-                in_int  = 0UL;
-            }
-            lcd_show_decimal(frame, ft_int, 0U, 0U, forward);
-            lcd_show_unit(frame, UNIT_FT, forward);
-            if ((0U != in_int) || (0U != n8))
-            {
-                if (0U != n8)
-                {
-                    uint8_t num, den;
-                    frac_reduce(n8, 8UL, &num, &den);
-                    lcd_show_sub_fraction(frame, (uint8_t)in_int, num, den, forward);
-                }
-                else
-                {
-                    lcd_show_sub_fraction(frame, (uint8_t)in_int, 0U, 0U, forward);
-                }
-                lcd_show_unit(frame, UNIT_IN, forward);
+                lcd_show_fraction2(frame, num, den, forward);   /* 下排分数 */
             }
             break;
         }
 
-        case DIGIT_IN_DEC:   /* 十进制英寸 */
+        case DIGIT_IN_DEC:   /* 4# 十进制英寸: 上排仅 IN 单位, 中排整数 + 双引号, 下排小数 */
         {
             uint32_t total_in = base_ft * 12UL;
             uint32_t in_int   = total_in / 1000UL;
@@ -424,33 +492,19 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
                 in_frac /= 10UL;
                 frac_len--;
             }
-            lcd_show_decimal(frame, in_int, in_frac, frac_len, forward);
-            lcd_show_unit(frame, UNIT_IN, forward);
+
+            lcd_show_unit(frame, UNIT_IN, forward);   /* 上排仅 IN 单位 */
+            lcd_show_mid_int(frame, in_int, forward);  /* 中排整数 */
+            lcd_show_in_mark(frame, forward);          /* 双引号 T31 / T17 */
+
+            if (0U != frac_len)
+            {
+                lcd_show_bot_decimal(frame, in_frac, frac_len, forward);
+            }
             break;
         }
 
-        case DIGIT_IN_FRAC:   /* 英寸 + 分数 (1/16, 约分, 零头隐藏) */
-        {
-            uint32_t total_in = base_ft * 12UL;
-            uint32_t in_int   = total_in / 1000UL;
-            uint32_t n16      = ((total_in % 1000UL) * 16UL + 500UL) / 1000UL;
-            if (n16 >= 16UL)                 /* 四舍五入进位到整数英寸 */
-            {
-                in_int += 1UL;
-                n16     = 0UL;
-            }
-            lcd_show_decimal(frame, in_int, 0U, 0U, forward);
-            if (0U != n16)
-            {
-                uint8_t num, den;
-                frac_reduce(n16, 16UL, &num, &den);
-                lcd_show_fraction2(frame, num, den, forward);
-            }
-            lcd_show_unit(frame, UNIT_IN, forward);
-            break;
-        }
-
-        case DIGIT_M:   /* 米 (有效小数位) */
+        case DIGIT_M:   /* 5# 米 (有效小数位) */
         {
             uint32_t m_milli  = (base_ft * 3048UL + 5000UL) / 10000UL;
             uint32_t m_int    = m_milli / 1000UL;
@@ -466,14 +520,46 @@ static void lcd_convert_show(uint8_t *frame, digital_t state,
             break;
         }
 
-        case DIGIT_CM:   /* 厘米 (4 位整数 + 1 位小数) */
+        case DIGIT_MM:   /* 6# 毫米 (整数) */
         {
-            uint32_t m_milli  = (base_ft * 3048UL + 5000UL) / 10000UL;
-            uint32_t cm_tenth = m_milli;      /* 0.1 cm = 0.001 m */
-            uint32_t cm_int   = cm_tenth / 10UL;
-            uint32_t cm_frac  = cm_tenth % 10UL;
-            lcd_show_4int_1frac(frame, cm_int, cm_frac, forward);
-            lcd_show_unit(frame, UNIT_CM, forward);
+            uint32_t m_milli = (base_ft * 3048UL + 5000UL) / 10000UL;  /* 毫米 */
+
+            if (m_milli > 9999UL)
+            {
+                /* >9999mm (≥10m): 米整数(中排) + 分隔符(T29/T14) + 毫米3位(端部排)
+                 * 正向: 12 | 555 => 中排 pos7/8 + T29 + 下排 pos10/11/12
+                 * 反向: 12 | 555 => 中排 pos6/5 + T14 + 上排 pos3/2/1 (倒置) */
+                uint32_t m_int   = m_milli / 1000UL;   /* 米整数 */
+                uint32_t mm_frac = m_milli % 1000UL;   /* 毫米 3 位 */
+                char     mm[4];
+                uint8_t  k;
+
+                lcd_show_mid_int(frame, m_int, forward);
+                lcd_show_icon(forward ? LCD_ICON_SEP_FWD : LCD_ICON_SEP_REV, frame);
+
+                sprintf(mm, "%03lu", (unsigned long)mm_frac);
+                for (k = 0U; k < 3U; k++)
+                {
+                    uint8_t digit = (uint8_t)(mm[k] - '0');
+                    if (forward)
+                    {
+                        lcd_show_digit((uint8_t)(10U + k), digit, frame);
+                    }
+                    else
+                    {
+                        lcd_show_digit_rot((uint8_t)(3U - k), digit, frame);
+                    }
+                }
+            }
+            else
+            {
+                /* ≤9999mm: 整数毫米显示在「端部排 + 中排」8 位窗口, 右对齐 */
+                char     digits[12];
+                sprintf(digits, "%lu", (unsigned long)m_milli);
+                lcd_show_mm_group(frame, digits, (uint8_t)strlen(digits), forward);
+            }
+
+            lcd_show_unit(frame, UNIT_MM, forward);   /* MM 图标 (正向 T41 / 反向 T18) */
             break;
         }
 
@@ -660,10 +746,11 @@ void display_refresh(const ui_state_t *s)
     lcd_show_icon(1U,  frame);  /* T2  水平仪 */
     lcd_show_icon(8U,  frame);  /* T9  电量显示框 */
 
-    /* 电量格: 满 3 格 (T10+T11+T12), 2 格 (T11+T12), 1 格 (T12), 0 格全灭 */
+    /* 电量格: 满 3 格 (T10+T11+T12), 2 格 (T10+T11), 1 格 (T10), 0 格全灭。
+     * 新面板: T10 第一格(最低), T11 第二格, T12 第三格(最高)。 */
     if (s->battery_level >= 1U)
     {
-        lcd_show_icon(11U, frame);  /* T12 第一格 (最低) */
+        lcd_show_icon(9U,  frame);  /* T10 第一格 (最低) */
     }
     if (s->battery_level >= 2U)
     {
@@ -671,7 +758,7 @@ void display_refresh(const ui_state_t *s)
     }
     if (s->battery_level >= 3U)
     {
-        lcd_show_icon(9U,  frame);  /* T10 第三格 (最高) */
+        lcd_show_icon(11U, frame);  /* T12 第三格 (最高) */
     }
 
     /* 按形式的图标组合
@@ -680,35 +767,35 @@ void display_refresh(const ui_state_t *s)
     switch (s->form)
     {
         case FORM_IDLE:
-            lcd_show_icon(0U, frame);    /* T1 箭头 */
+            lcd_show_icon(0U, frame);    /* T1 水平向下的箭头 */
             break;
 
         case FORM_A:
-            lcd_show_icon(0U, frame);    /* T1 箭头 */
+            lcd_show_icon(0U, frame);    /* T1 水平向下的箭头 */
             if (!s_blink_phase)
             {
                 lcd_show_icon(3U,  frame);   /* T4  一档基准 */
                 lcd_show_icon(4U,  frame);   /* T5  二档基准 */
-                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(6U,  frame);   /* T7  三档基准 */
                 lcd_show_icon(12U, frame);   /* T13 校准开关 */
             }
             break;
 
         case FORM_B:
-            lcd_show_icon(2U, frame);    /* T3 箭头 */
+            lcd_show_icon(2U, frame);    /* T3 更向下的箭头 */
             if (!s_blink_phase)
             {
                 lcd_show_icon(4U,  frame);   /* T5  二档基准 */
-                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(6U,  frame);   /* T7  三档基准 */
                 lcd_show_icon(12U, frame);   /* T13 校准开关 */
             }
             break;
 
         case FORM_C:
-            lcd_show_icon(5U, frame);    /* T6 箭头 */
+            lcd_show_icon(5U, frame);    /* T6 最向下的箭头 */
             if (!s_blink_phase)
             {
-                lcd_show_icon(7U,  frame);   /* T8  三档校准 */
+                lcd_show_icon(6U,  frame);   /* T7  三档基准 */
                 lcd_show_icon(12U, frame);   /* T13 校准开关 */
             }
             break;
