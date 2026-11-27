@@ -275,7 +275,7 @@ FSP Configuration
       Interrupts: Group B Trigger: Disabled
       Interrupts: Group Priority (Valid only in Group Scan Mode): Group A cannot interrupt Group B
       Input: Add/Average Count: Disabled
-      Input: Reference Voltage control: AVCC0/AVSS0
+      Input: Reference Voltage control: Internal Reference Voltage/AVSS0
       Input: Addition/Averaging Mask (channel availability varies by MCU and unit): 
       Input: Sample and Hold: Sample and Hold Channels (Available only on selected MCUs): 
       Input: Sample and Hold: Sample Hold States (Applies only to channels 0, 1, 2): 24

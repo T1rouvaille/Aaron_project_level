@@ -266,8 +266,8 @@ static void app_process_100ms(ui_state_t *ui)
     battery_update(ui->ldm_on, (T7_ON == ui->t7));
     ui_state_set_battery(ui, battery_get_level());
 
-    /* 保护关机: BUCK 失效与低电平级, 各自独立判断关机 */
-/*    if (battery_buck_need_shutdown())
+    /* 保护关机: BUCK 失效与低电关机, 各自独立判断关机 */
+    if (battery_buck_need_shutdown())
     {
         static bool buck_handled = false;
 
@@ -279,7 +279,7 @@ static void app_process_100ms(ui_state_t *ui)
         }
 
         power_off();
-    }*/
+    }
     if (battery_need_shutdown())
     {
         static bool handled = false;

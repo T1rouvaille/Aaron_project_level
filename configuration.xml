@@ -234,7 +234,7 @@
       <property id="module.driver.adc.trigger_group_b" value="_disabled"/>
       <property id="module.driver.adc.priority_group_a" value="module.driver.adc.priority_group_a.group_a_priority_off"/>
       <property id="module.driver.adc.add_average_count" value="module.driver.adc.add_average_count.add_off"/>
-      <property id="module.driver.adc.adc_vref_control" value="module.driver.adc.adc_vref_control.avcc0_avss0"/>
+      <property id="module.driver.adc.adc_vref_control" value="module.driver.adc.adc_vref_control.ivref_avss0"/>
       <property id="module.driver.adc.add_mask" value=""/>
       <property id="module.driver.adc.sample_hold_mask" value=""/>
       <property id="module.driver.adc.sample_hold_states" value="24"/>

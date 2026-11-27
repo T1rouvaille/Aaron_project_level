@@ -22,6 +22,9 @@ void adc_init(void)
     fsp_err_t err = R_ADC_Open(&g_adc0_ctrl, &g_adc0_cfg);
     assert(FSP_SUCCESS == err);
 
+    /* 内部参考电压 (IVREF) 需在 Open 后稳定 5us 才能开始采样 (FSP r_adc 手册要求) */
+    R_BSP_SoftwareDelay(5U, BSP_DELAY_UNITS_MICROSECONDS);
+
     err = R_ADC_ScanCfg(&g_adc0_ctrl, &g_adc0_channel_cfg);
     assert(FSP_SUCCESS == err);
 

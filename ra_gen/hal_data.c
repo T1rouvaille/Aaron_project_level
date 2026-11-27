@@ -292,7 +292,7 @@ const adc_extended_cfg_t g_adc0_cfg_extend =
   .trigger = ADC_START_SOURCE_DISABLED,
   .trigger_group_b = ADC_START_SOURCE_DISABLED,
   .double_trigger_mode = ADC_DOUBLE_TRIGGER_DISABLED,
-  .adc_vref_control = ADC_VREF_CONTROL_AVCC0_AVSS0,
+  .adc_vref_control = ADC_VREF_CONTROL_IVREF_AVSS0,
   .enable_adbuf = 0,
 #if defined(VECTOR_NUMBER_ADC0_WINDOW_A)
     .window_a_irq        = VECTOR_NUMBER_ADC0_WINDOW_A,
