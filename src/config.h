@@ -35,8 +35,8 @@
  *    2h   无操作 -> 关闭 laser 十字线 (SW4/T7)
  *  之后保持待机, 直到低电/手动长按/BUCK 失效才整机关机。
  * ---------------------------------------------------------------------- */
-#define LDM_AUTOOFF_SEC      (18000000U)  /* 30min 关 LDM */
-#define LASER_AUTOOFF_SEC    (72000000U)  /* 2h   关 laser */
+#define LDM_AUTOOFF_SEC      (1800U)  /* 30min 关 LDM */
+#define LASER_AUTOOFF_SEC    (7200U)  /* 2h   关 laser */
 
 /* ----------------------------------------------------------------------
  *  按键引脚 (SW1~SW4, 高有效: 按下接 VCC)
